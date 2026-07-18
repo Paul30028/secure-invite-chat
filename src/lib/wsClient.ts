@@ -1,0 +1,281 @@
+/**
+ * wsClient.ts - WebSocket 传输客户端
+ * 当前：直连后端；未来：URL 改为 wss 中继即可，本模块 API 不变。
+ * 只传输密文；加解密在 crypto / envelope。
+ */
+
+import { getWsUrl } from "./settings";
+import { withWireVersion } from "./protocol";
+
+export type IncomingMessage = {
+  id: string;
+  group_id: string;
+  sender_device_id: string;
+  sender_name: string;
+  msg_type: string;
+  ciphertext: string;
+  iv: string;
+  ts: number;
+};
+
+export type ServerMember = {
+  device_id: string;
+  display_name: string;
+  joined_at: number;
+  is_admin: boolean;
+  online: boolean;
+};
+
+type ServerEventMap = {
+  group_created: { group_id: string; name: string; invite_code: string; admin_token: string };
+  joined: { group_id: string; name: string };
+  resumed: { group_id: string };
+  history: { group_id: string; messages: IncomingMessage[] };
+  message: IncomingMessage;
+  code_regenerated: { group_id: string; invite_code: string };
+  members: { group_id: string; members: ServerMember[] };
+  member_kicked: { group_id: string; target_device_id: string };
+  kicked: { group_id: string; reason?: string };
+  /** 服务器主动下发：手机同 Wi‑Fi 建议地址 */
+  server_info: {
+    port?: number;
+    suggested_urls?: string[];
+    hint?: string;
+  };
+  error: { message: string };
+  connected: undefined;
+  disconnected: undefined;
+};
+
+type EventName = keyof ServerEventMap;
+type Listener<K extends EventName> = (payload: ServerEventMap[K]) => void;
+
+export class SicWsClient {
+  private ws: WebSocket | null = null;
+  private listeners: Record<string, Set<Listener<any>>> = {};
+  private reconnectDelay = 1000;
+  private shouldReconnect = true;
+  private connectPromise: Promise<void> | null = null;
+  private netHooksInstalled = false;
+
+  /** 每次连接读取最新 URL（设置面板可改） */
+  private get url(): string {
+    return getWsUrl();
+  }
+
+  /**
+   * 手机开/关流量、切网络、App 回前台时自动重连
+   */
+  installNetworkHooks() {
+    if (this.netHooksInstalled || typeof window === "undefined") return;
+    this.netHooksInstalled = true;
+
+    const tryReconnect = () => {
+      if (!this.shouldReconnect) return;
+      if (this.isOpen()) return;
+      console.info("[SicWsClient] 网络恢复/回前台，尝试重连…");
+      this.reconnectDelay = 1000;
+      void this.reconnectNow();
+    };
+
+    window.addEventListener("online", tryReconnect);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") tryReconnect();
+    });
+    // 部分 WebView：pageshow / focus
+    window.addEventListener("pageshow", tryReconnect);
+    window.addEventListener("focus", tryReconnect);
+  }
+
+  connect(): Promise<void> {
+    this.installNetworkHooks();
+    if (this.connectPromise) return this.connectPromise;
+    this.shouldReconnect = true;
+    const target = this.url;
+    // 空地址或未写完的模板
+    if (!target || target === "wss://" || target === "ws://") {
+      this.connectPromise = null;
+      this.emit("disconnected", undefined);
+      return Promise.resolve();
+    }
+    this.connectPromise = new Promise((resolve) => {
+      let settled = false;
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(target);
+      } catch (e) {
+        console.warn("[SicWsClient] WebSocket construct failed", target, e);
+        this.connectPromise = null;
+        this.emit("disconnected", undefined);
+        resolve();
+        if (this.shouldReconnect) {
+          setTimeout(() => this.connect(), this.reconnectDelay);
+        }
+        return;
+      }
+      this.ws = ws;
+
+      ws.onopen = () => {
+        this.reconnectDelay = 1000;
+        this.emit("connected", undefined);
+        if (!settled) {
+          settled = true;
+          resolve();
+        }
+      };
+
+      ws.onmessage = (evt) => {
+        try {
+          const data = JSON.parse(String(evt.data));
+          const { type, ...payload } = data;
+          this.emit(type as EventName, payload);
+        } catch (e) {
+          console.error("[SicWsClient] 消息解析失败", e);
+        }
+      };
+
+      ws.onclose = () => {
+        this.emit("disconnected", undefined);
+        this.connectPromise = null;
+        if (!settled) {
+          settled = true;
+          resolve();
+        }
+        if (this.shouldReconnect) {
+          setTimeout(() => this.connect(), this.reconnectDelay);
+          this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, 15000);
+        }
+      };
+
+      ws.onerror = () => {
+        try {
+          ws.close();
+        } catch {
+          /* ignore */
+        }
+      };
+    });
+    return this.connectPromise;
+  }
+
+  isOpen(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  /** 更换服务器地址后强制重连 */
+  reconnectNow() {
+    this.shouldReconnect = true;
+    this.connectPromise = null;
+    try {
+      this.ws?.close();
+    } catch {
+      /* ignore */
+    }
+    this.ws = null;
+    return this.connect();
+  }
+
+  /**
+   * 切换地址后等待连上（手机流量换 wss 再入群）
+   * @returns 是否在超时内连上
+   */
+  async waitUntilConnected(timeoutMs = 12000): Promise<boolean> {
+    if (this.isOpen()) return true;
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (ok: boolean) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        offConn();
+        resolve(ok);
+      };
+      const timer = setTimeout(() => finish(false), timeoutMs);
+      const offConn = this.on("connected", () => finish(true));
+      void this.reconnectNow().then(() => {
+        if (this.isOpen()) finish(true);
+      });
+    });
+  }
+
+  disconnect() {
+    this.shouldReconnect = false;
+    this.ws?.close();
+    this.ws = null;
+    this.connectPromise = null;
+  }
+
+  on<K extends EventName>(event: K, cb: Listener<K>): () => void {
+    if (!this.listeners[event]) this.listeners[event] = new Set();
+    this.listeners[event].add(cb as Listener<any>);
+    return () => this.listeners[event]?.delete(cb as Listener<any>);
+  }
+
+  private emit<K extends EventName>(event: K, payload: ServerEventMap[K]) {
+    this.listeners[event]?.forEach((cb) => cb(payload));
+  }
+
+  private send(payload: Record<string, unknown>) {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      console.warn("[SicWsClient] 连接未就绪", payload.type);
+      return;
+    }
+    // 带上 wire 版本，便于未来中继/多版本协商；旧服务端忽略未知字段
+    this.ws.send(JSON.stringify(withWireVersion(payload)));
+  }
+
+  createGroup(name: string, deviceId: string, displayName: string) {
+    this.send({ type: "create_group", name, device_id: deviceId, display_name: displayName });
+  }
+
+  joinGroup(inviteCode: string, deviceId: string, displayName: string) {
+    this.send({
+      type: "join_group",
+      invite_code: inviteCode,
+      device_id: deviceId,
+      display_name: displayName,
+    });
+  }
+
+  resumeGroup(groupId: string, deviceId: string) {
+    this.send({ type: "resume_group", group_id: groupId, device_id: deviceId });
+  }
+
+  sendMessage(params: {
+    groupId: string;
+    deviceId: string;
+    msgType: string;
+    ciphertext: string;
+    iv: string;
+    senderName: string;
+  }) {
+    this.send({
+      type: "send_message",
+      group_id: params.groupId,
+      device_id: params.deviceId,
+      msg_type: params.msgType,
+      ciphertext: params.ciphertext,
+      iv: params.iv,
+      sender_name: params.senderName,
+    });
+  }
+
+  regenerateCode(groupId: string, adminToken: string) {
+    this.send({ type: "regenerate_code", group_id: groupId, admin_token: adminToken });
+  }
+
+  listMembers(groupId: string, deviceId: string) {
+    this.send({ type: "list_members", group_id: groupId, device_id: deviceId });
+  }
+
+  kickMember(groupId: string, adminToken: string, targetDeviceId: string) {
+    this.send({
+      type: "kick_member",
+      group_id: groupId,
+      admin_token: adminToken,
+      target_device_id: targetDeviceId,
+    });
+  }
+}
+
+export const wsClient = new SicWsClient();

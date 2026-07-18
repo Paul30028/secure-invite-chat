@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  复制到: android/app/src/main/res/xml/network_security_config.xml
+  并在 AndroidManifest application 标签增加:
+  android:networkSecurityConfig="@xml/network_security_config"
+
+  开发期允许明文 ws://（局域网）。
+  上架/生产：删除 cleartext 许可，只使用 wss://。
+-->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="true">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+</network-security-config>

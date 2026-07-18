@@ -1,0 +1,39 @@
+# deps / build
+node_modules/
+dist/
+src-tauri/target/
+*.local
+
+# Android / Java
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/build/
+*.apk
+*.aab
+*.dex
+*.class
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# server runtime
+server/data.sqlite3
+server/__pycache__/
+**/__pycache__/
+*.pyc
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
