@@ -51,7 +51,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Paul30028/secure-invite-chat
 |------|------|------|
 | `SSH_PORT` | 当前 SSH 端口（**填错会锁死**） | `22` |
 | `PROXY_PORT` | 代理端口；`0` = 自动随机 | `0` |
-| `REALITY_SNI` | Reality 伪装域名 | `www.microsoft.com` |
+| `REALITY_SNI` | Reality 伪装域名（勿用 microsoft，证书过大易失败） | `www.cloudflare.com` |
 | `SKIP_HARDEN` | `1` = 跳过 fail2ban/sysctl | `0` |
 | `SINGBOX_VERSION` | 固定版本，如 `1.13.14` | 自动最新 |
 
@@ -118,8 +118,70 @@ journalctl -u sing-box-secure -f
 | 下载失败 | VPS 访问不了 GitHub；脚本会试镜像，仍失败则换有外网的机器或设代理后再装 |
 | 缺少 jq/curl | 检查系统源：`apt update && apt install -y jq curl` 后重跑 |
 | 服务启动失败 | `journalctl -u sing-box-secure -n 50` |
-| 客户端连不上 | 安全组是否放行代理端口；本机 `ss -lntp \| grep 端口` |
+| 客户端连不上 | 见下方「连不通排查」 |
 | SSH 连不上 | 是否误设 `SSH_PORT`；用云厂商 VNC/救援控制台恢复 |
+
+---
+
+## 连不通排查（已装好仍无法连接）
+
+### 1. 端口是否通
+
+在你电脑 PowerShell：
+
+```powershell
+Test-NetConnection 你的VPS_IP -Port 代理端口
+```
+
+`TcpTestSucceeded : True` 说明安全组/防火墙基本 OK。
+
+### 2. 服务是否在跑
+
+VPS 上：
+
+```bash
+systemctl status sing-box-secure
+ss -lntp | grep -E '28826|sing-box'   # 端口改成你的
+journalctl -u sing-box-secure -n 50 --no-pager
+```
+
+### 3. Reality 伪装站（常见坑）
+
+**不要用 `www.microsoft.com`**：证书过大，sing-box 容易握手失败  
+（[issue #4234](https://github.com/SagerNet/sing-box/issues/4234)）。
+
+推荐改为：`www.cloudflare.com` / `www.apple.com` / `gateway.icloud.com`
+
+**不重装，只改配置：**
+
+```bash
+# 备份
+cp /etc/s-box-secure/config.json /etc/s-box-secure/config.json.bak
+
+# 把 microsoft 换成 cloudflare
+sed -i 's/www.microsoft.com/www.cloudflare.com/g' /etc/s-box-secure/config.json
+
+# 校验并重启
+/etc/s-box-secure/sing-box check -c /etc/s-box-secure/config.json
+systemctl restart sing-box-secure
+systemctl status sing-box-secure
+```
+
+客户端链接里的 **sni=** 也要改成同一个：
+
+```text
+...&sni=www.cloudflare.com&...
+```
+
+### 4. 客户端要求
+
+- 必须支持 **VLESS + Reality + xtls-rprx-vision**
+- `pbk`（公钥）、`sid`（short_id）、`uuid`、端口必须与服务器一致
+- 不要开「允许不安全」之类乱改 Reality 参数
+
+### 5. 本机网络
+
+部分网络拦截非常规端口；可换手机 4G 试一次，或把 `PROXY_PORT` 设为 `443` 重装（注意与 HTTPS 冲突时需空闲）。
 
 ---
 

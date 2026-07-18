@@ -28,7 +28,9 @@ err(){ echo -e "${RED}[ERR ]${NC} $*" >&2; exit 1; }
 
 SSH_PORT="${SSH_PORT:-22}"
 PROXY_PORT="${PROXY_PORT:-0}"
-REALITY_SNI="${REALITY_SNI:-www.microsoft.com}"
+# 勿用 www.microsoft.com：证书链过大，sing-box Reality 握手易失败
+# 见 https://github.com/SagerNet/sing-box/issues/4234
+REALITY_SNI="${REALITY_SNI:-www.cloudflare.com}"
 SKIP_HARDEN="${SKIP_HARDEN:-0}"
 SINGBOX_VERSION="${SINGBOX_VERSION:-}"
 INSTALL_DIR="/etc/s-box-secure"
