@@ -27,6 +27,7 @@ from websockets.asyncio.server import serve
 import auth
 import db
 import protocol
+from rate_limit import TokenBucket
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("server")
@@ -36,6 +37,8 @@ GROUP_CONNECTIONS: dict[str, set] = {}
 CONNECTION_GROUPS: dict[object, set] = {}
 # websocket -> 单连接随机挑战；挑战绝不跨连接复用。
 CONNECTION_CHALLENGES: dict[object, str] = {}
+# websocket -> token bucket; this limits one authenticated transport connection.
+MESSAGE_LIMITERS: dict[object, TokenBucket] = {}
 
 
 async def register(group_id: str, ws, device_id: str):
@@ -57,6 +60,19 @@ async def unregister_device_from_group(group_id: str, device_id: str):
             groups.discard(group_id)
     if conns is not None and not conns:
         del GROUP_CONNECTIONS[group_id]
+
+
+def message_rate_allowed(ws) -> bool:
+    import config as cfg
+
+    bucket = MESSAGE_LIMITERS.get(ws)
+    if bucket is None:
+        bucket = TokenBucket(
+            per_minute=cfg.MESSAGE_RATE_PER_MINUTE,
+            burst=cfg.MESSAGE_RATE_BURST,
+        )
+        MESSAGE_LIMITERS[ws] = bucket
+    return bucket.allow()
 
 
 def is_registered(ws, group_id: str, device_id: str) -> bool:
@@ -89,6 +105,7 @@ async def unregister_all(ws):
                 del GROUP_CONNECTIONS[group_id]
     CONNECTION_GROUPS.pop(ws, None)
     CONNECTION_CHALLENGES.pop(ws, None)
+    MESSAGE_LIMITERS.pop(ws, None)
 
 
 def online_device_ids(group_id: str) -> set:
@@ -340,6 +357,9 @@ async def handle_connection(ws):
                     continue
                 if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
                     await send_error(ws, "not_authenticated")
+                    continue
+                if not message_rate_allowed(ws):
+                    await send_error(ws, "rate_limited")
                     continue
 
                 saved = db.save_message(
