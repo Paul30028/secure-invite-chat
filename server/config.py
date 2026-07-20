@@ -16,6 +16,13 @@ import socket
 HOST = os.environ.get("SIC_HOST", "0.0.0.0")
 PORT = int(os.environ.get("SIC_PORT", "8765"))
 PUBLIC_URL = os.environ.get("SIC_PUBLIC_URL", "").strip()
+MAX_WS_MESSAGE_BYTES = int(os.environ.get("SIC_MAX_WS_MESSAGE_BYTES", str(6 * 1024 * 1024)))
+ADVERTISE_LAN_HINTS = os.environ.get("SIC_ADVERTISE_LAN_HINTS", "0") == "1"
+
+# 浏览器客户端可通过 Origin 约束跨站 WebSocket 连接；原生客户端通常没有
+# Origin，因此公开部署应在 TLS 反代层另行限制来源和速率。
+_allowed_origins = os.environ.get("SIC_ALLOWED_ORIGINS", "").strip()
+ALLOWED_ORIGINS = [v.strip() for v in _allowed_origins.split(",") if v.strip()] or None
 
 
 def list_lan_ips() -> list[str]:
