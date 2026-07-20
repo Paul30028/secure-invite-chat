@@ -391,6 +391,7 @@ export function useChatEngine() {
         member_not_found: "成员不存在",
         display_name_taken: "昵称已被占用，请换一个",
         empty_display_name: "请填写昵称",
+        rate_limited: "发送过于频繁，请稍后再试",
       };
       setErrorMsg(map[payload.message] || payload.message);
       setTimeout(() => setErrorMsg(null), 4500);
