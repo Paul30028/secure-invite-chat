@@ -13,6 +13,7 @@ import {
   verifyPayload,
   type TrustResult,
 } from "./deviceIdentity";
+import { randomBytes } from "./random";
 
 export type EnvelopeV1 = {
   v: 1;
@@ -29,8 +30,13 @@ export type EnvelopeV1 = {
 };
 
 function randomPad(min = 0, max = 48): string {
-  const n = min + Math.floor(Math.random() * (max - min + 1));
-  const bytes = crypto.getRandomValues(new Uint8Array(n));
+  const span = max - min + 1;
+  const rejectionLimit = 256 - (256 % span);
+  let selector = randomBytes(1)[0]!;
+  while (selector >= rejectionLimit) selector = randomBytes(1)[0]!;
+  const n = min + (selector % span);
+  const bytes = randomBytes(n || 1);
+  if (n === 0) return "";
   let s = "";
   for (const b of bytes) s += String.fromCharCode(33 + (b % 90));
   return s;
