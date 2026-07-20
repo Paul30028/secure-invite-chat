@@ -26,6 +26,7 @@ from websockets.asyncio.server import serve
 
 import auth
 import db
+import protocol
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("server")
@@ -169,12 +170,13 @@ async def handle_connection(ws):
                 await send_error(ws, "invalid_json")
                 continue
 
-            if not isinstance(msg, dict):
-                await send_error(ws, "invalid_message")
+            schema_error = protocol.validate_message(msg)
+            if schema_error:
+                await send_error(ws, schema_error)
                 continue
 
             mtype = msg.get("type")
-            if not isinstance(mtype, str) or len(mtype) > 64:
+            if not isinstance(mtype, str):
                 await send_error(ws, "invalid_type")
                 continue
 
