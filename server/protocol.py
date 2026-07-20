@@ -44,7 +44,7 @@ def validate_message(message: object) -> str | None:
             return "invalid_field_value"
         if len(value) > max_length:
             return "invalid_field_length"
-        if field != "ciphertext" and any(ord(ch) < 0x20 for ch in value):
+        if any(ord(ch) < 0x20 for ch in value):
             return "invalid_field_value"
 
     return None
