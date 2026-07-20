@@ -40,8 +40,8 @@ const buildEnv = (import.meta as unknown as {
 }).env;
 
 export const DEFAULT_WS_URL: string = (() => {
-  const env = buildEnv;
-  if (env?.VITE_WS_URL?.trim()) return env.VITE_WS_URL.trim();
+  const configuredUrl = typeof buildEnv?.VITE_WS_URL === "string" ? buildEnv.VITE_WS_URL.trim() : "";
+  if (configuredUrl) return configuredUrl;
   // 桌面开发默认本机；原生端无 env 时用占位，启动后由用户填或设置页引导
   return "ws://127.0.0.1:8765";
 })();
