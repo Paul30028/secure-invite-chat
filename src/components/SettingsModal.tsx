@@ -25,9 +25,11 @@ type MatrixProbeState =
 export function SettingsModal({
   onClose,
   onSaved,
+  onOpenMatrixDemo,
 }: {
   onClose: () => void;
   onSaved: () => void;
+  onOpenMatrixDemo: () => void;
 }) {
   const [url, setUrl] = useState(getWsUrl());
   const [localOn, setLocalOn] = useState(() => isLocalMode());
@@ -139,8 +141,16 @@ export function SettingsModal({
             </div>
           )}
 
+          <button
+            type="button"
+            disabled={!matrixInfo.valid}
+            className="mt-3 w-full rounded-lg border border-indigo-600/70 bg-transparent px-3 py-2 text-xs text-indigo-200 disabled:opacity-40"
+            onClick={onOpenMatrixDemo}
+          >
+            打开 Matrix 房间与消息 Demo
+          </button>
           <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
-            当前消息仍走下方 WebSocket 原型；Matrix 登录、加密房间和同步将在下一阶段启用。
+            此 Demo 支持登录、房间、同步和文字消息；端到端加密将在安全阶段接入。
           </p>
         </section>
 
