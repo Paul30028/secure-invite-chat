@@ -48,6 +48,12 @@ export type ConnStatus = "connecting" | "online" | "offline" | "local";
 
 export const MAX_FILE_BYTES = LIMITS.maxFileBytes;
 
+type HistoryCursor = {
+  hasMore: boolean;
+  beforeTs?: number;
+  beforeId?: string;
+};
+
 export type FileSendProgress = {
   percent: number;
   stage: "read" | "encode" | "encrypt" | "send" | "done";
@@ -89,6 +95,7 @@ export function useChatEngine() {
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>(() =>
     isLocalMode() ? loadAllCachedMessages() : {}
   );
+  const [historyCursors, setHistoryCursors] = useState<Record<string, HistoryCursor>>({});
   const [status, setStatus] = useState<ConnStatus>(() =>
     isLocalMode() ? "local" : "connecting"
   );
@@ -313,7 +320,29 @@ export function useChatEngine() {
       const decrypted = await Promise.all(
         payload.messages.map((m) => decryptIncoming(group, m))
       );
-      setMessages((prev) => ({ ...prev, [payload.group_id]: decrypted }));
+      setMessages((prev) => {
+        const merged = new Map<string, ChatMessage>();
+        for (const message of prev[payload.group_id] || []) merged.set(message.id, message);
+        for (const message of decrypted) merged.set(message.id, message);
+        const ordered = [...merged.values()].sort(
+          (a, b) => a.ts - b.ts || a.id.localeCompare(b.id)
+        );
+        return { ...prev, [payload.group_id]: ordered };
+      });
+      const hasCursor =
+        payload.has_more === true &&
+        typeof payload.next_before_ts === "number" &&
+        typeof payload.next_before_id === "string";
+      setHistoryCursors((prev) => ({
+        ...prev,
+        [payload.group_id]: hasCursor
+          ? {
+              hasMore: true,
+              beforeTs: payload.next_before_ts,
+              beforeId: payload.next_before_id,
+            }
+          : { hasMore: false },
+      }));
     });
 
     const offMessage = wsClient.on("message", async (m) => {
@@ -392,6 +421,7 @@ export function useChatEngine() {
         display_name_taken: "昵称已被占用，请换一个",
         empty_display_name: "请填写昵称",
         rate_limited: "发送过于频繁，请稍后再试",
+        invalid_history_cursor: "历史记录分页参数无效，请重新同步",
       };
       setErrorMsg(map[payload.message] || payload.message);
       setTimeout(() => setErrorMsg(null), 4500);
@@ -605,6 +635,19 @@ export function useChatEngine() {
       });
     },
     [deviceId]
+  );
+
+  const loadOlderMessages = useCallback(
+    (groupId: string) => {
+      if (localModeRef.current) return;
+      const cursor = historyCursors[groupId];
+      if (!cursor?.hasMore || cursor.beforeTs === undefined || !cursor.beforeId) return;
+      wsClient.syncHistory(groupId, deviceId, {
+        beforeTs: cursor.beforeTs,
+        beforeId: cursor.beforeId,
+      });
+    },
+    [deviceId, historyCursors]
   );
 
   const sendMessage = useCallback(
@@ -884,6 +927,9 @@ export function useChatEngine() {
     setActiveGroupId,
     messages,
     membersByGroup,
+    historyHasMore: Object.fromEntries(
+      Object.entries(historyCursors).map(([groupId, cursor]) => [groupId, cursor.hasMore])
+    ),
     phoneHints,
     status,
     localMode,
@@ -892,6 +938,7 @@ export function useChatEngine() {
     clearSecurityAlert,
     createGroup,
     joinGroup,
+    loadOlderMessages,
     sendMessage,
     sendFile,
     simulatePeerMessage,
