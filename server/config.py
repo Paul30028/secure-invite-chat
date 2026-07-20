@@ -5,6 +5,8 @@
   SIC_HOST   监听地址，默认 0.0.0.0（允许局域网手机直连）
   SIC_PORT   端口，默认 8765
   SIC_PUBLIC_URL  可选，仅日志提示，如 ws://x.x.x.x:8765
+  SIC_MESSAGE_RATE_PER_MINUTE  每连接每分钟允许的密文消息数，默认 60
+  SIC_MESSAGE_RATE_BURST  每连接短时突发消息数，默认 12
 
 未来中继：本进程仍可只监听 127.0.0.1，由前面的 TLS 反代转发；
 业务协议不变，见客户端 src/lib/protocol.ts。
