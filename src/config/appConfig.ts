@@ -35,8 +35,12 @@ export const PROTOCOL = {
  * 构建默认后端地址（直连）
  * 生产中国区：在 .env 或 CI 中设置 VITE_WS_URL=ws://x.x.x.x:8765
  */
+const buildEnv = (import.meta as unknown as {
+  env?: Record<string, string | boolean | undefined>;
+}).env;
+
 export const DEFAULT_WS_URL: string = (() => {
-  const env = (import.meta as unknown as { env?: Record<string, string> }).env;
+  const env = buildEnv;
   if (env?.VITE_WS_URL?.trim()) return env.VITE_WS_URL.trim();
   // 桌面开发默认本机；原生端无 env 时用占位，启动后由用户填或设置页引导
   return "ws://127.0.0.1:8765";
@@ -47,14 +51,15 @@ export const DEFAULT_WS_URL: string = (() => {
  * 日后管理端在内网、成员走中继时，可单独配置 VITE_INVITE_WS_URL
  */
 export const DEFAULT_INVITE_WS_URL: string = (() => {
-  const env = (import.meta as unknown as { env?: Record<string, string> }).env;
-  if (env?.VITE_INVITE_WS_URL?.trim()) return env.VITE_INVITE_WS_URL.trim();
+  const env = buildEnv;
+  const configuredUrl = typeof env?.VITE_INVITE_WS_URL === "string" ? env.VITE_INVITE_WS_URL.trim() : "";
+  if (configuredUrl) return configuredUrl;
   return "";
 })();
 
 export const FEATURES = {
   /** 本地单机调试（不连服务器）— 真机互通时请关闭 */
-  localDebug: true,
+  localDebug: buildEnv?.DEV === true,
   /** 邀请码内嵌服务器：同 Wi‑Fi 时可选 */
   inviteEmbedServer: false,
   /** 公网：最后再做 */
