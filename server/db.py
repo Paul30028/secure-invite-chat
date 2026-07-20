@@ -310,14 +310,43 @@ def save_message(group_id, sender_device_id, sender_name, msg_type, ciphertext, 
     }
 
 
-def get_history(group_id: str, limit: int = 200):
+def get_history_page(
+    group_id: str,
+    *,
+    limit: int,
+    before_ts: int | None = None,
+    before_id: str | None = None,
+) -> tuple[list[dict], bool, tuple[int, str] | None]:
+    """Return one stable newest-first cursor page, ordered for chat rendering."""
+
+    if limit <= 0:
+        raise ValueError("history limit must be positive")
+    if (before_ts is None) != (before_id is None):
+        raise ValueError("history cursor must include timestamp and id together")
+
     conn = get_conn()
-    rows = conn.execute(
-        "SELECT * FROM messages WHERE group_id=? ORDER BY ts ASC LIMIT ?",
-        (group_id, limit),
-    ).fetchall()
+    if before_ts is None:
+        rows = conn.execute(
+            """SELECT * FROM messages WHERE group_id=?
+               ORDER BY ts DESC, id DESC LIMIT ?""",
+            (group_id, limit + 1),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """SELECT * FROM messages
+               WHERE group_id=? AND (ts < ? OR (ts = ? AND id < ?))
+               ORDER BY ts DESC, id DESC LIMIT ?""",
+            (group_id, before_ts, before_ts, before_id, limit + 1),
+        ).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+
+    has_more = len(rows) > limit
+    page_desc = rows[:limit]
+    next_cursor = None
+    if has_more and page_desc:
+        oldest = page_desc[-1]
+        next_cursor = (oldest["ts"], oldest["id"])
+    return [dict(row) for row in reversed(page_desc)], has_more, next_cursor
 
 
 def list_member_group_ids(device_id: str):
