@@ -28,7 +28,7 @@
 
 ## 阶段 C：音视频与公开通知
 
-1. 一对一通话采用 WebRTC；群通话使用 SFU 转发和编码帧端到端加密。
+1. 一对一通话采用 WebRTC；群通话使用 SFU 转发和编码帧端到端加密（见 `CALLS_MEDIA_ARCHITECTURE.md`）。
 2. TURN/SFU、推送与投递服务的元数据最小化单独建模与披露。
 3. 首页公开通知采用发布者签名、客户端验签；它与私密聊天密钥体系完全隔离（见 `PUBLIC_NOTICES_PROTOCOL.md`）。
 
