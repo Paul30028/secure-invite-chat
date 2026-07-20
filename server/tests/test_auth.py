@@ -4,7 +4,7 @@ import unittest
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, utils
 
-from auth import build_auth_payload, verify_p256_signature
+from server.auth import build_auth_payload, verify_p256_signature
 
 
 class DeviceAuthTests(unittest.TestCase):
