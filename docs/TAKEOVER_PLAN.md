@@ -16,7 +16,7 @@
 
 1. 定义版本化认证握手：服务端 nonce、设备签名、短时会话与连接绑定身份。
 2. 将身份密钥、群密钥和管理员凭证迁移到各平台安全存储；配套完成无手机号的多设备、吊销与恢复机制（见 `DEVICE_IDENTITY_AND_RECOVERY.md`）；Web 仅作为受限开发目标。
-3. 对协议实行严格 schema、大小限制、速率限制、分页历史和可观测审计。
+3. 对协议实行严格 schema、大小限制、速率限制、分页历史和可观测审计；遥测与事故响应遵循最小化原则（见 `PRIVACY_PRESERVING_OBSERVABILITY.md`）。
 4. 将网络端点、代理、重连与元数据控制纳入独立威胁模型（见 `NETWORK_PRIVACY_AND_RESILIENCE.md`）。
 5. 将设备 credential、KeyPackage 与撤销记录纳入可验证透明性目录（见 `KEY_DIRECTORY_TRANSPARENCY.md`）。
 6. 验签失败、身份不匹配或重放消息必须被拒绝，不能以普通消息形式展示。
