@@ -463,7 +463,14 @@ export function useChatEngine() {
         });
         return;
       }
-      const groupSecret = generateGroupSecret();
+      let groupSecret: string;
+      try {
+        groupSecret = generateGroupSecret();
+      } catch {
+        setErrorMsg("无法获取安全随机数，已停止创建群。");
+        setTimeout(() => setErrorMsg(null), 5000);
+        return;
+      }
       const pending = { name, displayName, groupSecret };
       pendingCreate.current = pending;
       void wsClient.createGroup(name, deviceId, displayName).catch(() => {
