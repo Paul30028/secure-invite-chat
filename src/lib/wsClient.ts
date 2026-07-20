@@ -6,6 +6,11 @@
 
 import { getWsUrl } from "./settings";
 import { withWireVersion } from "./protocol";
+import {
+  buildAuthPayload,
+  getOrCreateDeviceIdentity,
+  signPayload,
+} from "./deviceIdentity";
 
 export type IncomingMessage = {
   id: string;
@@ -37,6 +42,7 @@ type ServerEventMap = {
   member_kicked: { group_id: string; target_device_id: string };
   kicked: { group_id: string; reason?: string };
   /** 服务器主动下发：手机同 Wi‑Fi 建议地址 */
+  auth_challenge: { challenge: string };
   server_info: {
     port?: number;
     suggested_urls?: string[];
@@ -57,6 +63,7 @@ export class SicWsClient {
   private shouldReconnect = true;
   private connectPromise: Promise<void> | null = null;
   private netHooksInstalled = false;
+  private authChallenge: string | null = null;
 
   /** 每次连接读取最新 URL（设置面板可改） */
   private get url(): string {
@@ -128,6 +135,9 @@ export class SicWsClient {
         try {
           const data = JSON.parse(String(evt.data));
           const { type, ...payload } = data;
+          if (type === "auth_challenge" && typeof payload.challenge === "string") {
+            this.authChallenge = payload.challenge;
+          }
           this.emit(type as EventName, payload);
         } catch (e) {
           console.error("[SicWsClient] 消息解析失败", e);
@@ -224,21 +234,52 @@ export class SicWsClient {
     this.ws.send(JSON.stringify(withWireVersion(payload)));
   }
 
-  createGroup(name: string, deviceId: string, displayName: string) {
-    this.send({ type: "create_group", name, device_id: deviceId, display_name: displayName });
+  async createGroup(name: string, deviceId: string, displayName: string) {
+    const identity = await getOrCreateDeviceIdentity();
+    this.send({
+      type: "create_group",
+      name,
+      device_id: deviceId,
+      display_name: displayName,
+      identity_pub: identity.publicKeySpkiB64,
+    });
   }
 
-  joinGroup(inviteCode: string, deviceId: string, displayName: string) {
+  async joinGroup(inviteCode: string, deviceId: string, displayName: string) {
+    const identity = await getOrCreateDeviceIdentity();
     this.send({
       type: "join_group",
       invite_code: inviteCode,
       device_id: deviceId,
       display_name: displayName,
+      identity_pub: identity.publicKeySpkiB64,
     });
   }
 
-  resumeGroup(groupId: string, deviceId: string) {
-    this.send({ type: "resume_group", group_id: groupId, device_id: deviceId });
+  async resumeGroup(groupId: string, deviceId: string) {
+    if (!this.authChallenge) {
+      const off = this.on("auth_challenge", () => {
+        off();
+        void this.resumeGroup(groupId, deviceId);
+      });
+      return;
+    }
+    const identity = await getOrCreateDeviceIdentity();
+    const authSig = await signPayload(
+      identity.privateKey,
+      buildAuthPayload({
+        challenge: this.authChallenge,
+        action: "resume_group",
+        groupId,
+        deviceId,
+      })
+    );
+    this.send({
+      type: "resume_group",
+      group_id: groupId,
+      device_id: deviceId,
+      auth_sig: authSig,
+    });
   }
 
   sendMessage(params: {
