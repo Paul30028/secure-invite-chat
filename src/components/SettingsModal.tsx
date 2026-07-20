@@ -128,7 +128,7 @@ export function SettingsModal({
               <p className="mt-1 text-emerald-300/80">
                 支持 {matrixProbe.result.versions.length} 个 API 版本
                 {matrixProbe.result.versions.length > 0
-                  ? `（最新报告：${matrixProbe.result.versions.at(-1)}）`
+                  ? `（最新报告：${matrixProbe.result.versions[matrixProbe.result.versions.length - 1]}）`
                   : ""}
               </p>
             </div>
