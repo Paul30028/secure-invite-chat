@@ -25,6 +25,7 @@ STRING_LIMITS: dict[str, int] = {
     "iv": 128,
     "msg_type": 32,
     "sender_name": 96,
+    "before_id": 128,
 }
 
 
@@ -46,5 +47,11 @@ def validate_message(message: object) -> str | None:
             return "invalid_field_length"
         if any(ord(ch) < 0x20 for ch in value):
             return "invalid_field_value"
+
+    before_ts = message.get("before_ts")
+    if before_ts is not None and (
+        not isinstance(before_ts, int) or isinstance(before_ts, bool) or before_ts < 0
+    ):
+        return "invalid_field_type"
 
     return None
