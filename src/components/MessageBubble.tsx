@@ -263,6 +263,16 @@ function FileBubble({ msg, trust }: { msg: ChatMessage; trust: ReturnType<typeof
 export function MessageBubble({ msg }: { msg: ChatMessage }) {
   const trust = trustLabel(msg.trust);
 
+  if (msg.blocked) {
+    return (
+      <div className="flex justify-center mb-3">
+        <span className="max-w-[85%] rounded-lg border border-red-500/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+          {msg.text}
+        </span>
+      </div>
+    );
+  }
+
   if (msg.msgType === "file" && msg.file && !msg.decryptError) {
     return <FileBubble msg={msg} trust={trust} />;
   }
