@@ -42,6 +42,8 @@ export type ChatMessage = {
   ts: number;
   isMine: boolean;
   decryptError?: boolean;
+  /** 验签失败的密文被隔离，不得按普通聊天内容渲染。 */
+  blocked?: boolean;
   file?: FileMeta & { dataB64: string };
   trust?: TrustBadge;
 };
