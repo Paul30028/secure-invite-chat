@@ -7,6 +7,7 @@
   SIC_PUBLIC_URL  可选，仅日志提示，如 ws://x.x.x.x:8765
   SIC_MESSAGE_RATE_PER_MINUTE  每连接每分钟允许的密文消息数，默认 60
   SIC_MESSAGE_RATE_BURST  每连接短时突发消息数，默认 12
+  SIC_HISTORY_PAGE_SIZE  每次历史同步的最大消息数，默认 100
 
 未来中继：本进程仍可只监听 127.0.0.1，由前面的 TLS 反代转发；
 业务协议不变，见客户端 src/lib/protocol.ts。
@@ -31,6 +32,7 @@ MAX_WS_MESSAGE_BYTES = _positive_int_env("SIC_MAX_WS_MESSAGE_BYTES", 6 * 1024 * 
 # 每连接的密文消息限流。边缘代理仍需承担跨连接/IP 的 DDoS 防护。
 MESSAGE_RATE_PER_MINUTE = _positive_int_env("SIC_MESSAGE_RATE_PER_MINUTE", 60)
 MESSAGE_RATE_BURST = _positive_int_env("SIC_MESSAGE_RATE_BURST", 12)
+HISTORY_PAGE_SIZE = _positive_int_env("SIC_HISTORY_PAGE_SIZE", 100)
 ADVERTISE_LAN_HINTS = os.environ.get("SIC_ADVERTISE_LAN_HINTS", "0") == "1"
 # 生产环境设为 1：拒绝无设备公钥或无挑战签名的旧客户端。
 REQUIRE_DEVICE_AUTH = os.environ.get("SIC_REQUIRE_DEVICE_AUTH", "0") == "1"
