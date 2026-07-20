@@ -42,6 +42,7 @@ def init_db():
             group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
             device_id TEXT NOT NULL,
             display_name TEXT NOT NULL,
+            identity_pub TEXT,
             joined_at INTEGER NOT NULL,
             UNIQUE(group_id, device_id)
         );
@@ -60,6 +61,11 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_messages_group_ts ON messages(group_id, ts);
         """
     )
+    # 兼容旧库：补充身份公钥与管理员标记列。
+    try:
+        conn.execute("ALTER TABLE members ADD COLUMN identity_pub TEXT")
+    except sqlite3.OperationalError:
+        pass
     # 兼容旧库：补充 is_admin 列
     try:
         conn.execute(
@@ -89,7 +95,12 @@ def init_db():
     conn.close()
 
 
-def create_group(name: str, admin_device_id: str, admin_display_name: str) -> dict:
+def create_group(
+    name: str,
+    admin_device_id: str,
+    admin_display_name: str,
+    identity_pub: str | None = None,
+) -> dict:
     conn = get_conn()
     group_id = str(uuid.uuid4())
     invite_code = secrets.token_urlsafe(9)  # 12字符左右, 高强度随机
@@ -101,9 +112,10 @@ def create_group(name: str, admin_device_id: str, admin_display_name: str) -> di
     )
     member_id = str(uuid.uuid4())
     conn.execute(
-        """INSERT INTO members (id, group_id, device_id, display_name, joined_at, is_admin)
-           VALUES (?,?,?,?,?,1)""",
-        (member_id, group_id, admin_device_id, admin_display_name, now),
+        """INSERT INTO members
+           (id, group_id, device_id, display_name, identity_pub, joined_at, is_admin)
+           VALUES (?,?,?,?,?,?,1)""",
+        (member_id, group_id, admin_device_id, admin_display_name, identity_pub, now),
     )
     conn.commit()
     conn.close()
@@ -157,7 +169,12 @@ def is_display_name_taken(
     return False
 
 
-def add_member(group_id: str, device_id: str, display_name: str) -> str | None:
+def add_member(
+    group_id: str,
+    device_id: str,
+    display_name: str,
+    identity_pub: str | None = None,
+) -> str | None:
     """
     加入成员。成功返回 None；失败返回错误码：
       display_name_taken / empty_display_name
@@ -170,16 +187,36 @@ def add_member(group_id: str, device_id: str, display_name: str) -> str | None:
         return "display_name_taken"
 
     conn = get_conn()
+    existing = conn.execute(
+        "SELECT identity_pub FROM members WHERE group_id=? AND device_id=?",
+        (group_id, device_id),
+    ).fetchone()
+    if existing and existing["identity_pub"] and existing["identity_pub"] != identity_pub:
+        conn.close()
+        return "device_identity_mismatch"
     now = int(time.time())
     conn.execute(
-        """INSERT INTO members (id, group_id, device_id, display_name, joined_at, is_admin)
-           VALUES (?,?,?,?,?,0)
-           ON CONFLICT(group_id, device_id) DO UPDATE SET display_name=excluded.display_name""",
-        (str(uuid.uuid4()), group_id, device_id, name, now),
+        """INSERT INTO members
+           (id, group_id, device_id, display_name, identity_pub, joined_at, is_admin)
+           VALUES (?,?,?,?,?,?,0)
+           ON CONFLICT(group_id, device_id) DO UPDATE SET
+             display_name=excluded.display_name,
+             identity_pub=COALESCE(members.identity_pub, excluded.identity_pub)""",
+        (str(uuid.uuid4()), group_id, device_id, name, identity_pub, now),
     )
     conn.commit()
     conn.close()
     return None
+
+
+def get_member_identity_pub(group_id: str, device_id: str) -> str | None:
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT identity_pub FROM members WHERE group_id=? AND device_id=?",
+        (group_id, device_id),
+    ).fetchone()
+    conn.close()
+    return row["identity_pub"] if row and row["identity_pub"] else None
 
 
 def is_member(group_id: str, device_id: str) -> bool:
