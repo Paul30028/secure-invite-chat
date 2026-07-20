@@ -117,10 +117,12 @@ async def send_error(ws, message: str):
 
 async def handle_connection(ws):
     try:
-        # 连上即下发局域网地址，方便手机同一 Wi‑Fi 填写（先跑通程序）
+        # 仅在显式开发配置下公布局域网地址，避免公网服务泄露内部网络信息。
         import config as cfg
 
         try:
+            if not cfg.ADVERTISE_LAN_HINTS:
+                raise RuntimeError("LAN hints disabled")
             await ws.send(
                 json.dumps(
                     {
@@ -141,7 +143,14 @@ async def handle_connection(ws):
                 await send_error(ws, "invalid_json")
                 continue
 
+            if not isinstance(msg, dict):
+                await send_error(ws, "invalid_message")
+                continue
+
             mtype = msg.get("type")
+            if not isinstance(mtype, str) or len(mtype) > 64:
+                await send_error(ws, "invalid_type")
+                continue
 
             if mtype == "create_group":
                 name = (msg.get("name") or "").strip()
@@ -329,7 +338,17 @@ async def main():
     else:
         log.info("手机填: ws://<电脑局域网IP>:%s  （电脑运行 ipconfig 查看）", cfg.PORT)
     log.info("公网/流量接入：最后再设计，当前不强制")
-    async with serve(handle_connection, cfg.HOST, cfg.PORT):
+    async with serve(
+        handle_connection,
+        cfg.HOST,
+        cfg.PORT,
+        max_size=cfg.MAX_WS_MESSAGE_BYTES,
+        max_queue=16,
+        ping_interval=20,
+        ping_timeout=20,
+        compression=None,
+        origins=cfg.ALLOWED_ORIGINS,
+    ):
         await asyncio.Future()
 
 
