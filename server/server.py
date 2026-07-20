@@ -24,6 +24,7 @@ import logging
 import websockets
 from websockets.asyncio.server import serve
 
+import auth
 import db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -32,6 +33,8 @@ log = logging.getLogger("server")
 # group_id -> set of (websocket, device_id)
 GROUP_CONNECTIONS: dict[str, set] = {}
 CONNECTION_GROUPS: dict[object, set] = {}
+# websocket -> 单连接随机挑战；挑战绝不跨连接复用。
+CONNECTION_CHALLENGES: dict[object, str] = {}
 
 
 async def register(group_id: str, ws, device_id: str):
@@ -55,6 +58,25 @@ async def unregister_device_from_group(group_id: str, device_id: str):
         del GROUP_CONNECTIONS[group_id]
 
 
+def is_registered(ws, group_id: str, device_id: str) -> bool:
+    return (ws, device_id) in GROUP_CONNECTIONS.get(group_id, set())
+
+
+def is_registered_for_group(ws, group_id: str) -> bool:
+    return any(item[0] is ws for item in GROUP_CONNECTIONS.get(group_id, set()))
+
+
+def has_valid_resume_proof(ws, group_id: str, device_id: str, signature: object) -> bool:
+    if not isinstance(signature, str):
+        return False
+    challenge = CONNECTION_CHALLENGES.get(ws)
+    public_key = db.get_member_identity_pub(group_id, device_id)
+    if not challenge or not public_key:
+        return False
+    payload = auth.build_auth_payload(challenge, "resume_group", group_id, device_id)
+    return auth.verify_p256_signature(public_key, signature, payload)
+
+
 async def unregister_all(ws):
     for group_id in CONNECTION_GROUPS.get(ws, set()):
         conns = GROUP_CONNECTIONS.get(group_id)
@@ -65,6 +87,7 @@ async def unregister_all(ws):
             if not conns:
                 del GROUP_CONNECTIONS[group_id]
     CONNECTION_GROUPS.pop(ws, None)
+    CONNECTION_CHALLENGES.pop(ws, None)
 
 
 def online_device_ids(group_id: str) -> set:
@@ -120,6 +143,9 @@ async def handle_connection(ws):
         # 仅在显式开发配置下公布局域网地址，避免公网服务泄露内部网络信息。
         import config as cfg
 
+        CONNECTION_CHALLENGES[ws] = auth.new_challenge()
+        await ws.send(json.dumps({"type": "auth_challenge", "challenge": CONNECTION_CHALLENGES[ws]}))
+
         try:
             if not cfg.ADVERTISE_LAN_HINTS:
                 raise RuntimeError("LAN hints disabled")
@@ -156,13 +182,19 @@ async def handle_connection(ws):
                 name = (msg.get("name") or "").strip()
                 device_id = msg.get("device_id")
                 display_name = (msg.get("display_name") or "").strip() or "Admin"
+                identity_pub = msg.get("identity_pub")
                 if not name or not device_id:
                     await send_error(ws, "name_and_device_id_required")
                     continue
                 if not display_name:
                     await send_error(ws, "empty_display_name")
                     continue
-                result = db.create_group(name, device_id, display_name)
+                if cfg.REQUIRE_DEVICE_AUTH and (not isinstance(identity_pub, str) or not identity_pub):
+                    await send_error(ws, "identity_pub_required")
+                    continue
+                result = db.create_group(
+                    name, device_id, display_name, identity_pub if isinstance(identity_pub, str) else None
+                )
                 await register(result["group_id"], ws, device_id)
                 await ws.send(json.dumps({"type": "group_created", **result}))
                 await ws.send(json.dumps(members_payload(result["group_id"])))
@@ -172,6 +204,7 @@ async def handle_connection(ws):
                 invite_code = msg.get("invite_code")
                 device_id = msg.get("device_id")
                 display_name = (msg.get("display_name") or "").strip() or "成员"
+                identity_pub = msg.get("identity_pub")
                 if not invite_code or not device_id:
                     await send_error(ws, "invite_code_and_device_id_required")
                     continue
@@ -179,7 +212,13 @@ async def handle_connection(ws):
                 if not group:
                     await send_error(ws, "invalid_invite_code")
                     continue
-                err = db.add_member(group["id"], device_id, display_name)
+                if cfg.REQUIRE_DEVICE_AUTH and (not isinstance(identity_pub, str) or not identity_pub):
+                    await send_error(ws, "identity_pub_required")
+                    continue
+                err = db.add_member(
+                    group["id"], device_id, display_name,
+                    identity_pub if isinstance(identity_pub, str) else None,
+                )
                 if err:
                     await send_error(ws, err)
                     continue
@@ -203,6 +242,11 @@ async def handle_connection(ws):
                 if not group_id or not device_id or not db.is_member(group_id, device_id):
                     await send_error(ws, "not_a_member")
                     continue
+                if cfg.REQUIRE_DEVICE_AUTH and not has_valid_resume_proof(
+                    ws, group_id, device_id, msg.get("auth_sig")
+                ):
+                    await send_error(ws, "authentication_failed")
+                    continue
                 await register(group_id, ws, device_id)
                 await ws.send(json.dumps({"type": "resumed", "group_id": group_id}))
                 history = db.get_history(group_id)
@@ -220,6 +264,9 @@ async def handle_connection(ws):
                 if not group_id or not db.is_member(group_id, device_id or ""):
                     await send_error(ws, "not_a_member")
                     continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
+                    await send_error(ws, "not_authenticated")
+                    continue
                 history = db.get_history(group_id)
                 await ws.send(
                     json.dumps({"type": "history", "group_id": group_id, "messages": history})
@@ -230,6 +277,9 @@ async def handle_connection(ws):
                 device_id = msg.get("device_id")
                 if not group_id or not device_id or not db.is_member(group_id, device_id):
                     await send_error(ws, "not_a_member")
+                    continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
+                    await send_error(ws, "not_authenticated")
                     continue
                 await ws.send(json.dumps(members_payload(group_id)))
 
@@ -282,6 +332,9 @@ async def handle_connection(ws):
                     continue
                 if not db.is_member(group_id, device_id):
                     await send_error(ws, "not_a_member")
+                    continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
+                    await send_error(ws, "not_authenticated")
                     continue
 
                 saved = db.save_message(
