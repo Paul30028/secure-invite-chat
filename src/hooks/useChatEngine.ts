@@ -242,7 +242,12 @@ export function useChatEngine() {
       } catch {
         /* ignore */
       }
-      getLocalGroups().forEach((g) => wsClient.resumeGroup(g.groupId, deviceId));
+      getLocalGroups().forEach((g) => {
+        void wsClient.resumeGroup(g.groupId, deviceId).catch(() => {
+          setErrorMsg("设备认证未完成，无法恢复群会话。请重新连接或检查设备身份。");
+          setTimeout(() => setErrorMsg(null), 5000);
+        });
+      });
     });
     const offDisconnected = wsClient.on("disconnected", () => {
       if (!localModeRef.current) setStatus("offline");
@@ -452,12 +457,20 @@ export function useChatEngine() {
   const createGroup = useCallback(
     (name: string, displayName: string) => {
       if (localModeRef.current) {
-        void createGroupLocal(name, displayName);
+        void createGroupLocal(name, displayName).catch(() => {
+          setErrorMsg("无法初始化本地加密材料，请检查设备的安全随机数支持。");
+          setTimeout(() => setErrorMsg(null), 5000);
+        });
         return;
       }
       const groupSecret = generateGroupSecret();
-      pendingCreate.current = { name, displayName, groupSecret };
-      wsClient.createGroup(name, deviceId, displayName);
+      const pending = { name, displayName, groupSecret };
+      pendingCreate.current = pending;
+      void wsClient.createGroup(name, deviceId, displayName).catch(() => {
+        if (pendingCreate.current === pending) pendingCreate.current = null;
+        setErrorMsg("无法初始化设备身份或发送建群请求，请重试。");
+        setTimeout(() => setErrorMsg(null), 5000);
+      });
     },
     [createGroupLocal, deviceId]
   );
@@ -575,7 +588,12 @@ export function useChatEngine() {
             done(false);
           }
         });
-        wsClient.joinGroup(parsed.serverInviteCode, deviceId, name);
+        void wsClient.joinGroup(parsed.serverInviteCode, deviceId, name).catch(() => {
+          pendingJoin.current = null;
+          setErrorMsg("无法初始化设备身份或发送入群请求，请重试。");
+          setTimeout(() => setErrorMsg(null), 5000);
+          done(false);
+        });
       });
     },
     [deviceId]
