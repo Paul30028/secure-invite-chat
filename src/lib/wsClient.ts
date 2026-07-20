@@ -35,7 +35,13 @@ type ServerEventMap = {
   group_created: { group_id: string; name: string; invite_code: string; admin_token: string };
   joined: { group_id: string; name: string };
   resumed: { group_id: string };
-  history: { group_id: string; messages: IncomingMessage[] };
+  history: {
+    group_id: string;
+    messages: IncomingMessage[];
+    has_more?: boolean;
+    next_before_ts?: number;
+    next_before_id?: string;
+  };
   message: IncomingMessage;
   code_regenerated: { group_id: string; invite_code: string };
   members: { group_id: string; members: ServerMember[] };
@@ -279,6 +285,21 @@ export class SicWsClient {
       group_id: groupId,
       device_id: deviceId,
       auth_sig: authSig,
+    });
+  }
+
+  syncHistory(
+    groupId: string,
+    deviceId: string,
+    cursor?: { beforeTs: number; beforeId: string }
+  ) {
+    this.send({
+      type: "sync_history",
+      group_id: groupId,
+      device_id: deviceId,
+      ...(cursor
+        ? { before_ts: cursor.beforeTs, before_id: cursor.beforeId }
+        : {}),
     });
   }
 
