@@ -112,6 +112,31 @@ def online_device_ids(group_id: str) -> set:
     return {did for _, did in GROUP_CONNECTIONS.get(group_id, set())}
 
 
+def history_payload(
+    group_id: str,
+    *,
+    before_ts: int | None = None,
+    before_id: str | None = None,
+) -> dict:
+    import config as cfg
+
+    messages, has_more, cursor = db.get_history_page(
+        group_id,
+        limit=cfg.HISTORY_PAGE_SIZE,
+        before_ts=before_ts,
+        before_id=before_id,
+    )
+    payload: dict = {
+        "type": "history",
+        "group_id": group_id,
+        "messages": messages,
+        "has_more": has_more,
+    }
+    if cursor:
+        payload["next_before_ts"], payload["next_before_id"] = cursor
+    return payload
+
+
 def members_payload(group_id: str) -> dict:
     online = online_device_ids(group_id)
     members = []
@@ -247,10 +272,7 @@ async def handle_connection(ws):
                         {"type": "joined", "group_id": group["id"], "name": group["name"]}
                     )
                 )
-                history = db.get_history(group["id"])
-                await ws.send(
-                    json.dumps({"type": "history", "group_id": group["id"], "messages": history})
-                )
+                await ws.send(json.dumps(history_payload(group["id"])))
                 # 全员刷新成员列表
                 await broadcast(group["id"], members_payload(group["id"]))
                 log.info(f"设备 {device_id} 加入群组 {group['id']}")
@@ -268,10 +290,7 @@ async def handle_connection(ws):
                     continue
                 await register(group_id, ws, device_id)
                 await ws.send(json.dumps({"type": "resumed", "group_id": group_id}))
-                history = db.get_history(group_id)
-                await ws.send(
-                    json.dumps({"type": "history", "group_id": group_id, "messages": history})
-                )
+                await ws.send(json.dumps(history_payload(group_id)))
                 await ws.send(json.dumps(members_payload(group_id)))
                 # 在线状态变化通知他人
                 await broadcast(group_id, members_payload(group_id))
@@ -286,9 +305,19 @@ async def handle_connection(ws):
                 if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
                     await send_error(ws, "not_authenticated")
                     continue
-                history = db.get_history(group_id)
+                before_ts = msg.get("before_ts")
+                before_id = msg.get("before_id")
+                if (before_ts is None) != (before_id is None):
+                    await send_error(ws, "invalid_history_cursor")
+                    continue
                 await ws.send(
-                    json.dumps({"type": "history", "group_id": group_id, "messages": history})
+                    json.dumps(
+                        history_payload(
+                            group_id,
+                            before_ts=before_ts,
+                            before_id=before_id,
+                        )
+                    )
                 )
 
             elif mtype == "list_members":
