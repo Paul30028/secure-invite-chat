@@ -4,7 +4,7 @@
 **当前主线：中国区直连后端**（Client ↔ `ws://服务器:8765`）。  
 公网 TLS 中继为后续阶段；地址已做成可配置，换 `wss://` 即可接中继。
 
-详见 **`docs/ARCHITECTURE.md`**。
+详见 **`docs/ARCHITECTURE.md`**、**`docs/SECURITY_ARCHITECTURE_V2.md`** 与 **`docs/SECURE_STORAGE_MIGRATION.md`**。
 
 ## 怎么用
 
@@ -105,11 +105,12 @@ SIC1.<服务器入群码>.<群密钥材料>
 
 - ✅ 服务器只存 `ciphertext` + `iv`，不能解密  
 - ✅ 无全局用户目录，仅邀请入群  
-- ⚠️ 群共享密钥：密钥泄露则历史密文可解（无前向保密）  
-- ⚠️ 发送者昵称/设备 ID 客户端自报，未做密码学签名  
+- ⚠️ 群共享密钥：密钥泄露则历史密文可解（无前向保密）；成员移除尚未触发群密钥轮换  
+- ⚠️ 迁移分支已加入设备签名与可选的挑战认证，但旧群兼容期不能视为强制身份认证  
+- ⚠️ 当前客户端仍使用 localStorage 保存敏感材料；正式移动/桌面版必须完成安全存储迁移  
 - ⚠️ 文件经 WebSocket 传输，单文件建议 ≤4MB  
 
-详见 `ROADMAP.md` 与 `src/lib/crypto.ts` 注释。
+详见 `ROADMAP.md`、`docs/SECURITY_ARCHITECTURE_V2.md` 与 `docs/SECURE_STORAGE_MIGRATION.md`。
 
 ## 移动端 Android APK
 
