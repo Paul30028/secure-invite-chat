@@ -86,8 +86,8 @@ export async function openEnvelope(
   try {
     const obj = JSON.parse(plain) as EnvelopeV1;
     if (obj && obj.v === 1 && obj.kind && obj.body !== undefined) {
-      const trust = rememberDeviceKey(obj.deviceId, obj.pub);
       let sigValid: boolean | null = null;
+      let trust: TrustResult = { status: "no_sig" };
       if (obj.sig && obj.pub) {
         const payload = buildSignPayload({
           body: obj.body,
@@ -95,8 +95,12 @@ export async function openEnvelope(
           ts: obj.ts,
           groupId,
         });
-        // 若公钥变更，用新公钥验签仅用于检测；信任层仍标 key_changed
+        // 验签必须发生在写入 TOFU 记录之前；否则恶意成员可用无效签名
+        // 污染某个 deviceId 的首次信任公钥。
         sigValid = await verifyPayload(obj.pub, payload, obj.sig);
+        trust = sigValid
+          ? rememberDeviceKey(obj.deviceId, obj.pub)
+          : { status: "bad_sig" };
       } else {
         sigValid = null;
       }
