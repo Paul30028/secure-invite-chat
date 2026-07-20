@@ -13,10 +13,22 @@
 import os
 import socket
 
+
+def _positive_int_env(name: str, default: int) -> int:
+    try:
+        value = int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 HOST = os.environ.get("SIC_HOST", "0.0.0.0")
-PORT = int(os.environ.get("SIC_PORT", "8765"))
+PORT = _positive_int_env("SIC_PORT", 8765)
 PUBLIC_URL = os.environ.get("SIC_PUBLIC_URL", "").strip()
-MAX_WS_MESSAGE_BYTES = int(os.environ.get("SIC_MAX_WS_MESSAGE_BYTES", str(6 * 1024 * 1024)))
+MAX_WS_MESSAGE_BYTES = _positive_int_env("SIC_MAX_WS_MESSAGE_BYTES", 6 * 1024 * 1024)
+# 每连接的密文消息限流。边缘代理仍需承担跨连接/IP 的 DDoS 防护。
+MESSAGE_RATE_PER_MINUTE = _positive_int_env("SIC_MESSAGE_RATE_PER_MINUTE", 60)
+MESSAGE_RATE_BURST = _positive_int_env("SIC_MESSAGE_RATE_BURST", 12)
 ADVERTISE_LAN_HINTS = os.environ.get("SIC_ADVERTISE_LAN_HINTS", "0") == "1"
 # 生产环境设为 1：拒绝无设备公钥或无挑战签名的旧客户端。
 REQUIRE_DEVICE_AUTH = os.environ.get("SIC_REQUIRE_DEVICE_AUTH", "0") == "1"
