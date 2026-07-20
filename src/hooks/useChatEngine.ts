@@ -137,6 +137,24 @@ export function useChatEngine() {
         const key = await getKey(group);
         const plain = await decryptText(key, m.ciphertext, m.iv);
         const opened = await openEnvelope(plain, m.group_id);
+
+        // 密文能被群密钥解开并不等于发送者可信：任一群成员都可能构造
+        // 无效签名。此类内容必须隔离，不能作为文字、链接或文件渲染。
+        if (!opened.legacy && opened.sigValid !== true) {
+          setSecurityAlert("已阻止一条签名无效的消息；它不会作为聊天内容显示。");
+          return {
+            id: m.id,
+            groupId: m.group_id,
+            senderDeviceId: "",
+            senderName: "安全系统",
+            msgType: "blocked",
+            text: "[已阻止签名无效的消息]",
+            ts: m.ts,
+            isMine: false,
+            trust: "bad_sig",
+            blocked: true,
+          };
+        }
         const badge = trustToBadge(opened.trust, opened.sigValid, opened.legacy);
 
         if (badge === "key_changed") {
