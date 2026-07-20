@@ -86,14 +86,40 @@ export function buildSignPayload(parts: {
 
 export async function signPayload(
   privateKey: CryptoKey,
-  payload: string
+  payload: string | BufferSource
 ): Promise<string> {
+  const data =
+    typeof payload === "string" ? new TextEncoder().encode(payload) : payload;
   const sig = await crypto.subtle.sign(
     { name: "ECDSA", hash: "SHA-256" },
     privateKey,
-    new TextEncoder().encode(payload)
+    data
   );
   return toB64(sig);
+}
+
+/** 与 server/auth.py 保持一致的长度前缀认证载荷。 */
+export function buildAuthPayload(parts: {
+  challenge: string;
+  action: string;
+  groupId: string;
+  deviceId: string;
+}): Uint8Array {
+  const values = ["sic-device-auth-v1", parts.challenge, parts.action, parts.groupId, parts.deviceId];
+  const encoded = values.map((value) => new TextEncoder().encode(value));
+  if (values.some((value) => !value || /[\r\n]/.test(value))) {
+    throw new Error("invalid authentication payload");
+  }
+  const length = encoded.reduce((total, value) => total + 4 + value.length, 0);
+  const out = new Uint8Array(length);
+  let offset = 0;
+  for (const value of encoded) {
+    new DataView(out.buffer).setUint32(offset, value.length, false);
+    offset += 4;
+    out.set(value, offset);
+    offset += value.length;
+  }
+  return out;
 }
 
 export async function verifyPayload(
