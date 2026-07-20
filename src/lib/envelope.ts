@@ -35,8 +35,8 @@ function randomPad(min = 0, max = 48): string {
   let selector = randomBytes(1)[0]!;
   while (selector >= rejectionLimit) selector = randomBytes(1)[0]!;
   const n = min + (selector % span);
-  const bytes = randomBytes(n || 1);
   if (n === 0) return "";
+  const bytes = randomBytes(n);
   let s = "";
   for (const b of bytes) s += String.fromCharCode(33 + (b % 90));
   return s;
