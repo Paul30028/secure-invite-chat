@@ -291,6 +291,9 @@ async def handle_connection(ws):
                 if not group or group["admin_token"] != admin_token:
                     await send_error(ws, "not_authorized")
                     continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered_for_group(ws, group_id):
+                    await send_error(ws, "not_authenticated")
+                    continue
                 if not target:
                     await send_error(ws, "missing_fields")
                     continue
@@ -348,6 +351,9 @@ async def handle_connection(ws):
                 group = db.find_group_by_id(group_id) if group_id else None
                 if not group or group["admin_token"] != admin_token:
                     await send_error(ws, "not_authorized")
+                    continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered_for_group(ws, group_id):
+                    await send_error(ws, "not_authenticated")
                     continue
                 new_code = db.regenerate_invite_code(group_id)
                 await ws.send(
