@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import {
   createMatrixDemoRoom,
-  createMatrixPublicNoticeRoom,
   loginMatrixDemo,
   sendMatrixDemoText,
   sendMatrixDemoFile,
@@ -80,30 +79,6 @@ export function MatrixDemoModal({ onClose }: { onClose: () => void }) {
       setNotice("私有房间已创建。");
     });
 
-  const createPublicNotice = () =>
-    session &&
-    act(async () => {
-      const roomId = await createMatrixPublicNoticeRoom(session, newRoom);
-      setNewRoom("");
-      setActiveRoomId(roomId);
-      await refresh(session);
-      setNotice("公开公告频道已创建。");
-    });
-
-  const initializeNoticeColumns = () =>
-    session &&
-    act(async () => {
-      const names = ["每日圣经灵修", "赞美诗歌", "每日金句"];
-      let firstRoomId = "";
-      for (const name of names) {
-        const roomId = await createMatrixPublicNoticeRoom(session, name);
-        if (!firstRoomId) firstRoomId = roomId;
-      }
-      setActiveRoomId(firstRoomId);
-      await refresh(session);
-      setNotice("三个公开公告栏目已创建；刷新后可分别发布内容。");
-    });
-
   const send = () =>
     session &&
     activeRoomId &&
@@ -149,14 +124,9 @@ export function MatrixDemoModal({ onClose }: { onClose: () => void }) {
           <div className="flex min-h-[420px] flex-1 flex-col sm:flex-row">
             <aside className="overflow-y-auto border-b border-[#30363d] p-3 sm:w-72 sm:border-b-0 sm:border-r">
               <p className="mb-3 break-all text-[10px] text-slate-500">{session.userId}<span className="mt-1 block">{session.homeserverUrl}</span></p>
-              <button type="button" disabled={busy} className="mb-3 w-full rounded-lg border border-amber-700/70 bg-amber-950/30 px-3 py-2.5 text-xs text-amber-100 disabled:opacity-40" onClick={() => void initializeNoticeColumns()}>初始化每日公告栏目</button>
-              <div className="mb-3">
-                <input className="mb-2 w-full rounded-lg border border-[#30363d] bg-[#0d1117] px-2 py-2 text-xs outline-none focus:border-indigo-500" value={newRoom} onChange={(event) => setNewRoom(event.target.value)} placeholder="房间或公告频道名称" />
-                <div className="flex gap-2">
-                  <button type="button" disabled={busy || !newRoom.trim()} className="flex-1 rounded-lg bg-indigo-600 px-2 py-2 text-xs disabled:opacity-40" onClick={() => void createRoom()}>私有房间</button>
-                  <button type="button" disabled={busy || !newRoom.trim()} className="flex-1 rounded-lg bg-amber-700 px-2 py-2 text-xs disabled:opacity-40" onClick={() => void createPublicNotice()}>公开公告</button>
-                </div>
-                <p className="mt-2 text-[10px] text-slate-600">公开公告将创建可发现的 Matrix 房间。</p>
+              <div className="mb-3 flex gap-2">
+                <input className="min-w-0 flex-1 rounded-lg border border-[#30363d] bg-[#0d1117] px-2 py-2 text-xs outline-none focus:border-indigo-500" value={newRoom} onChange={(event) => setNewRoom(event.target.value)} placeholder="新私有房间名称" />
+                <button type="button" disabled={busy || !newRoom.trim()} className="rounded-lg bg-indigo-600 px-3 text-xs disabled:opacity-40" onClick={() => void createRoom()}>创建</button>
               </div>
               <div className="space-y-1">
                 {rooms.map((room) => <button key={room.roomId} type="button" onClick={() => setActiveRoomId(room.roomId)} className={"w-full rounded-lg px-3 py-2 text-left text-xs " + (activeRoomId === room.roomId ? "bg-indigo-600 text-white" : "bg-[#21262d] text-slate-300")}><span className="block truncate">{room.name}</span><span className="block truncate text-[9px] opacity-60">{room.roomId}</span></button>)}
