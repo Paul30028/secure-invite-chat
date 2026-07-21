@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   createMatrixDemoRoom,
   loginMatrixDemo,
   sendMatrixDemoText,
+  sendMatrixDemoFile,
   syncMatrixDemo,
   type MatrixDemoRoom,
   type MatrixDemoSession,
@@ -34,6 +35,7 @@ export function MatrixDemoModal({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const activeRoom = useMemo(
     () => rooms.find((room) => room.roomId === activeRoomId),
     [rooms, activeRoomId]
@@ -86,6 +88,15 @@ export function MatrixDemoModal({ onClose }: { onClose: () => void }) {
       await refresh(session);
     });
 
+  const sendFile = (file: File) =>
+    session &&
+    activeRoomId &&
+    act(async () => {
+      await sendMatrixDemoFile(session, activeRoomId, file);
+      await refresh(session);
+      setNotice("文件已发送。");
+    });
+
   return (
     <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/70 p-3">
       <div className="flex max-h-[94vh] w-full max-w-[820px] flex-col overflow-hidden rounded-xl border border-[#30363d] bg-[#161b22] shadow-2xl">
@@ -128,12 +139,12 @@ export function MatrixDemoModal({ onClose }: { onClose: () => void }) {
                 <button type="button" disabled={busy} className="rounded-md bg-[#21262d] px-3 py-1.5 text-[11px] text-slate-300 disabled:opacity-40" onClick={() => void act(() => refresh(session))}>刷新同步</button>
               </div>
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                {activeRoom?.messages.map((message) => <div key={message.eventId} className={"max-w-[85%] rounded-xl px-3 py-2 text-sm " + (message.sender === session.userId ? "ml-auto bg-indigo-600 text-white" : "bg-[#21262d] text-slate-200")}><p className="mb-1 break-all text-[9px] opacity-60">{message.sender}</p><p className="whitespace-pre-wrap break-words">{message.body}</p></div>)}
+                {activeRoom?.messages.map((message) => <div key={message.eventId} className={"max-w-[85%] rounded-xl px-3 py-2 text-sm " + (message.sender === session.userId ? "ml-auto bg-indigo-600 text-white" : "bg-[#21262d] text-slate-200")}><p className="mb-1 break-all text-[9px] opacity-60">{message.sender}</p>{message.kind === "file" ? <a className="block break-all underline" href={message.mediaUrl} target="_blank" rel="noreferrer">📎 {message.body}{message.size ? " · " + Math.ceil(message.size / 1024) + " KB" : ""}</a> : <p className="whitespace-pre-wrap break-words">{/^https?:\/\//i.test(message.body) ? <a className="underline" href={message.body} target="_blank" rel="noreferrer">{message.body}</a> : message.body}</p>}</div>)}
                 {activeRoom && !activeRoom.messages.length && <p className="mt-8 text-center text-xs text-slate-600">房间内暂无文字消息。</p>}
               </div>
               <div className="border-t border-[#30363d] p-3">
                 {notice && <p className="mb-2 text-[11px] text-amber-200">{notice}</p>}
-                <div className="flex gap-2"><input className="min-w-0 flex-1 rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2.5 text-sm outline-none focus:border-indigo-500" value={draft} onChange={(event) => setDraft(event.target.value)} disabled={!activeRoom} placeholder={activeRoom ? "输入明文测试消息" : "请先选择房间"} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void send(); } }} /><button type="button" disabled={busy || !activeRoom || !draft.trim()} className="rounded-lg bg-indigo-600 px-4 text-sm font-semibold disabled:opacity-40" onClick={() => void send()}>发送</button></div>
+                <div className="flex gap-2"><input ref={fileInputRef} className="hidden" type="file" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void sendFile(file); }} /><button type="button" disabled={busy || !activeRoom} className="rounded-lg bg-[#21262d] px-3 text-xs text-slate-200 disabled:opacity-40" onClick={() => fileInputRef.current?.click()}>文件</button><input className="min-w-0 flex-1 rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2.5 text-sm outline-none focus:border-indigo-500" value={draft} onChange={(event) => setDraft(event.target.value)} disabled={!activeRoom} placeholder={activeRoom ? "输入消息或链接" : "请先选择房间"} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void send(); } }} /><button type="button" disabled={busy || !activeRoom || !draft.trim()} className="rounded-lg bg-indigo-600 px-4 text-sm font-semibold disabled:opacity-40" onClick={() => void send()}>发送</button></div><p className="mt-2 text-[10px] text-slate-600">文件最大 10 MB；链接会以可点击文本显示。</p>
               </div>
             </main>
           </div>
