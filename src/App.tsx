@@ -11,6 +11,7 @@ import { Onboarding } from "./components/Onboarding";
 import { ConnectionBanner } from "./components/ConnectionBanner";
 import { AdminHome } from "./components/AdminHome";
 import { MembersPanel } from "./components/MembersPanel";
+import { MatrixDemoModal } from "./components/MatrixDemoModal";
 
 function App() {
   const {
@@ -46,6 +47,7 @@ function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showMatrixDemo, setShowMatrixDemo] = useState(false);
 
   const activeGroup = groups.find((g) => g.groupId === activeGroupId) || null;
   const mobileShowSidebar = !activeGroupId;
@@ -166,12 +168,17 @@ function App() {
       {showSettings && (
         <SettingsModal
           onClose={() => setShowSettings(false)}
+          onOpenMatrixDemo={() => {
+            setShowSettings(false);
+            setShowMatrixDemo(true);
+          }}
           onSaved={() => {
             applyModeFromSettings();
             void reconnect();
           }}
         />
       )}
+      {showMatrixDemo && <MatrixDemoModal onClose={() => setShowMatrixDemo(false)} />}
 
       {securityAlert && (
         <div className="fixed top-14 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md bg-red-900/95 border border-red-500 text-white text-sm px-4 py-3 rounded-lg shadow-xl z-[70]">
