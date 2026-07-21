@@ -26,10 +26,12 @@ export function SettingsModal({
   onClose,
   onSaved,
   onOpenMatrixDemo,
+  onOpenPublicNotices,
 }: {
   onClose: () => void;
   onSaved: () => void;
   onOpenMatrixDemo: () => void;
+  onOpenPublicNotices: () => void;
 }) {
   const [url, setUrl] = useState(getWsUrl());
   const [localOn, setLocalOn] = useState(() => isLocalMode());
@@ -87,6 +89,15 @@ export function SettingsModal({
         <p className="text-xs text-slate-500 mb-4">
           先保留现有聊天 Demo，同时验证 Matrix 家服务器，为下一步迁移房间与消息同步做准备。
         </p>
+
+        <button
+          type="button"
+          className="mb-4 w-full rounded-xl border border-amber-700/60 bg-amber-950/20 px-4 py-3 text-left"
+          onClick={onOpenPublicNotices}
+        >
+          <span className="block text-sm font-semibold text-amber-100">📢 公开公告</span>
+          <span className="mt-1 block text-[11px] text-amber-200/70">每日圣经灵修、赞美诗歌、每日金句</span>
+        </button>
 
         <section className="rounded-xl border border-indigo-800/60 bg-indigo-950/20 p-4 mb-5">
           <div className="flex items-start justify-between gap-3 mb-3">
