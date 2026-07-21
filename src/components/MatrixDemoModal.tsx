@@ -90,6 +90,20 @@ export function MatrixDemoModal({ onClose }: { onClose: () => void }) {
       setNotice("公开公告频道已创建。");
     });
 
+  const initializeNoticeColumns = () =>
+    session &&
+    act(async () => {
+      const names = ["每日圣经灵修", "赞美诗歌", "每日金句"];
+      let firstRoomId = "";
+      for (const name of names) {
+        const roomId = await createMatrixPublicNoticeRoom(session, name);
+        if (!firstRoomId) firstRoomId = roomId;
+      }
+      setActiveRoomId(firstRoomId);
+      await refresh(session);
+      setNotice("三个公开公告栏目已创建；刷新后可分别发布内容。");
+    });
+
   const send = () =>
     session &&
     activeRoomId &&
@@ -135,6 +149,7 @@ export function MatrixDemoModal({ onClose }: { onClose: () => void }) {
           <div className="flex min-h-[420px] flex-1 flex-col sm:flex-row">
             <aside className="overflow-y-auto border-b border-[#30363d] p-3 sm:w-72 sm:border-b-0 sm:border-r">
               <p className="mb-3 break-all text-[10px] text-slate-500">{session.userId}<span className="mt-1 block">{session.homeserverUrl}</span></p>
+              <button type="button" disabled={busy} className="mb-3 w-full rounded-lg border border-amber-700/70 bg-amber-950/30 px-3 py-2.5 text-xs text-amber-100 disabled:opacity-40" onClick={() => void initializeNoticeColumns()}>初始化每日公告栏目</button>
               <div className="mb-3">
                 <input className="mb-2 w-full rounded-lg border border-[#30363d] bg-[#0d1117] px-2 py-2 text-xs outline-none focus:border-indigo-500" value={newRoom} onChange={(event) => setNewRoom(event.target.value)} placeholder="房间或公告频道名称" />
                 <div className="flex gap-2">
