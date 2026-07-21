@@ -14,6 +14,10 @@ export type MatrixDemoMessage = {
   sender: string;
   body: string;
   timestamp: number;
+  kind: "text" | "file";
+  mediaUrl?: string;
+  mimetype?: string;
+  size?: number;
 };
 
 export type MatrixDemoRoom = {
@@ -138,14 +142,25 @@ export async function syncMatrixDemo(
         sender?: unknown;
         origin_server_ts?: unknown;
         type?: unknown;
-        content?: { msgtype?: unknown; body?: unknown };
+        content?: {
+          msgtype?: unknown;
+          body?: unknown;
+          url?: unknown;
+          info?: { mimetype?: unknown; size?: unknown };
+        };
       };
+      const isText = event.content?.msgtype === "m.text";
+      const isFile =
+        event.content?.msgtype === "m.file" ||
+        event.content?.msgtype === "m.image" ||
+        event.content?.msgtype === "m.video" ||
+        event.content?.msgtype === "m.audio";
       if (
         event.type !== "m.room.message" ||
-        event.content?.msgtype !== "m.text" ||
+        (!isText && !isFile) ||
         typeof event.event_id !== "string" ||
         typeof event.sender !== "string" ||
-        typeof event.content.body !== "string"
+        typeof event.content?.body !== "string"
       ) {
         continue;
       }
@@ -154,6 +169,16 @@ export async function syncMatrixDemo(
         roomId,
         sender: event.sender,
         body: event.content.body,
+        kind: isFile ? "file" : "text",
+        mediaUrl:
+          isFile && typeof event.content.url === "string"
+            ? matrixMediaDownloadUrl(session.homeserverUrl, event.content.url)
+            : undefined,
+        mimetype:
+          typeof event.content.info?.mimetype === "string"
+            ? event.content.info.mimetype
+            : undefined,
+        size: typeof event.content.info?.size === "number" ? event.content.info.size : undefined,
         timestamp:
           typeof event.origin_server_ts === "number" ? event.origin_server_ts : Date.now(),
       });
@@ -191,6 +216,42 @@ export async function createMatrixDemoRoom(
   return result.room_id;
 }
 
+export const MAX_MATRIX_DEMO_FILE_BYTES = 10 * 1024 * 1024;
+
+function matrixMediaDownloadUrl(homeserverUrl: string, mxcUrl: string): string | undefined {
+  if (!mxcUrl.startsWith("mxc://")) return undefined;
+  const mediaId = mxcUrl.slice("mxc://".length).split("/");
+  if (mediaId.length !== 2 || !mediaId[0] || !mediaId[1]) return undefined;
+  return `${normalizeMatrixHomeserverUrl(homeserverUrl)}/_matrix/media/v3/download/${encodeURIComponent(
+    mediaId[0]
+  )}/${encodeURIComponent(mediaId[1])}`;
+}
+
+async function uploadMatrixDemoFile(session: MatrixDemoSession, file: File): Promise<string> {
+  if (file.size > MAX_MATRIX_DEMO_FILE_BYTES) {
+    throw new Error("文件不能超过 10 MB");
+  }
+  const query = new URLSearchParams({ filename: file.name });
+  const response = await fetch(
+    `${normalizeMatrixHomeserverUrl(session.homeserverUrl)}/_matrix/media/v3/upload?${query.toString()}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file,
+      cache: "no-store",
+    }
+  );
+  if (!response.ok) throw new Error(`文件上传失败（HTTP ${response.status}）`);
+  const payload = (await response.json()) as { content_uri?: unknown };
+  if (typeof payload.content_uri !== "string" || !payload.content_uri.startsWith("mxc://")) {
+    throw new Error("Matrix 上传响应无效");
+  }
+  return payload.content_uri;
+}
+
 export async function sendMatrixDemoText(
   session: MatrixDemoSession,
   roomId: string,
@@ -211,6 +272,37 @@ export async function sendMatrixDemoText(
     {
       method: "PUT",
       body: JSON.stringify({ msgtype: "m.text", body: body.trim() }),
+    },
+    session.accessToken
+  );
+}
+
+
+export async function sendMatrixDemoFile(
+  session: MatrixDemoSession,
+  roomId: string,
+  file: File
+): Promise<void> {
+  if (!roomId) throw new Error("请先选择房间");
+  if (!file.name || file.size <= 0) throw new Error("请选择有效文件");
+  const mxcUrl = await uploadMatrixDemoFile(session, file);
+  const transactionId =
+    typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${crypto.getRandomValues(new Uint32Array(1))[0]}`;
+  await matrixRequest(
+    session.homeserverUrl,
+    `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/send/m.room.message/${encodeURIComponent(
+      transactionId
+    )}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        msgtype: file.type.startsWith("image/") ? "m.image" : "m.file",
+        body: file.name,
+        url: mxcUrl,
+        info: { mimetype: file.type || "application/octet-stream", size: file.size },
+      }),
     },
     session.accessToken
   );
