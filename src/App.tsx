@@ -12,6 +12,7 @@ import { ConnectionBanner } from "./components/ConnectionBanner";
 import { AdminHome } from "./components/AdminHome";
 import { MembersPanel } from "./components/MembersPanel";
 import { MatrixDemoModal } from "./components/MatrixDemoModal";
+import { PublicNoticeModal } from "./components/PublicNoticeModal";
 
 function App() {
   const {
@@ -48,6 +49,7 @@ function App() {
   const [showMembers, setShowMembers] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showMatrixDemo, setShowMatrixDemo] = useState(false);
+  const [showPublicNotices, setShowPublicNotices] = useState(false);
 
   const activeGroup = groups.find((g) => g.groupId === activeGroupId) || null;
   const mobileShowSidebar = !activeGroupId;
@@ -168,6 +170,10 @@ function App() {
       {showSettings && (
         <SettingsModal
           onClose={() => setShowSettings(false)}
+          onOpenPublicNotices={() => {
+            setShowSettings(false);
+            setShowPublicNotices(true);
+          }}
           onOpenMatrixDemo={() => {
             setShowSettings(false);
             setShowMatrixDemo(true);
@@ -179,6 +185,7 @@ function App() {
         />
       )}
       {showMatrixDemo && <MatrixDemoModal onClose={() => setShowMatrixDemo(false)} />}
+      {showPublicNotices && <PublicNoticeModal onClose={() => setShowPublicNotices(false)} />}
 
       {securityAlert && (
         <div className="fixed top-14 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md bg-red-900/95 border border-red-500 text-white text-sm px-4 py-3 rounded-lg shadow-xl z-[70]">
