@@ -1,0 +1,27 @@
+{
+  "devotion": [
+    {
+      "date": "2026-07-21",
+      "title": "在安静中祷告",
+      "body": "请在这里填写当天的灵修引导、祷告主题或小组分享问题。",
+      "reference": "请填写经文出处"
+    }
+  ],
+  "hymn": [
+    {
+      "date": "2026-07-21",
+      "title": "今日赞美诗歌",
+      "body": "请填写诗歌简介或祷告引导。",
+      "audio_url": "https://example.org/your-authorized-hymn-audio.mp3",
+      "reference": "仅使用你拥有传播权的音频或链接"
+    }
+  ],
+  "verse": [
+    {
+      "date": "2026-07-21",
+      "title": "每日金句",
+      "body": "请填写当天经文内容。",
+      "reference": "请填写经文出处与所用译本"
+    }
+  ]
+}
