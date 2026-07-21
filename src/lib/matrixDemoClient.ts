@@ -222,7 +222,15 @@ function matrixMediaDownloadUrl(homeserverUrl: string, mxcUrl: string): string |
   if (!mxcUrl.startsWith("mxc://")) return undefined;
   const mediaId = mxcUrl.slice("mxc://".length).split("/");
   if (mediaId.length !== 2 || !mediaId[0] || !mediaId[1]) return undefined;
-  return `${normalizeMatrixHomeserverUrl(homeserverUrl)}/_matrix/media/v3/download/${encodeURIComponent(
+
+  // The client API proxy can differ from the media repository hostname
+  // (for example matrix-client.matrix.org versus mxc://matrix.org/...).
+  const configured = new URL(normalizeMatrixHomeserverUrl(homeserverUrl));
+  const origin =
+    mediaId[0] === configured.host
+      ? normalizeMatrixHomeserverUrl(homeserverUrl)
+      : `https://${mediaId[0]}`;
+  return `${origin}/_matrix/media/v3/download/${encodeURIComponent(
     mediaId[0]
   )}/${encodeURIComponent(mediaId[1])}`;
 }
