@@ -252,6 +252,29 @@ async function uploadMatrixDemoFile(session: MatrixDemoSession, file: File): Pro
   return payload.content_uri;
 }
 
+export async function createMatrixPublicNoticeRoom(
+  session: MatrixDemoSession,
+  name: string
+): Promise<string> {
+  if (!name.trim()) throw new Error("请输入公告频道名称");
+  const result = await matrixRequest<{ room_id?: string }>(
+    session.homeserverUrl,
+    "/_matrix/client/v3/createRoom",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: name.trim(),
+        topic: "公开公告频道 · 本阶段不启用端到端加密",
+        preset: "public_chat",
+        visibility: "public",
+      }),
+    },
+    session.accessToken
+  );
+  if (!result.room_id) throw new Error("Matrix 公告房间创建失败");
+  return result.room_id;
+}
+
 export async function sendMatrixDemoText(
   session: MatrixDemoSession,
   roomId: string,
