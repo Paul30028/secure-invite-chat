@@ -164,7 +164,7 @@ export function ChatWindow({
           {localMode && onSimulatePeer && (
             <button
               type="button"
-              className="px-2 py-1.5 text-[11px] rounded-lg bg-sky-900/50 text-sky-200"
+              className="hidden"
               onClick={onSimulatePeer}
             >
               模拟
@@ -181,7 +181,7 @@ export function ChatWindow({
           )}
           <button
             type="button"
-            className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-emerald-900/40 text-emerald-300"
+            className="hidden"
             onClick={() => setShowSafety(true)}
           >
             安全码
@@ -189,7 +189,7 @@ export function ChatWindow({
           {group.isAdmin && (
             <button
               type="button"
-              className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-indigo-600 text-white font-medium"
+              className="hidden"
               onClick={onOpenAdmin}
             >
               邀请码
@@ -197,7 +197,7 @@ export function ChatWindow({
           )}
           <button
             type="button"
-            className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-red-600/20 text-red-400"
+            className="hidden"
             onClick={onLeave}
           >
             退出
@@ -341,7 +341,7 @@ export function ChatWindow({
         <div className="flex items-end gap-1 sm:gap-1.5">
           <button
             type="button"
-            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-lg bg-[#21262d] hover:bg-[#2d333b] flex items-center justify-center text-base"
+            className="hidden"
             onClick={() => setShowEmoji((s) => !s)}
             title="表情"
           >
@@ -349,7 +349,7 @@ export function ChatWindow({
           </button>
           <button
             type="button"
-            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-lg bg-[#21262d] hover:bg-[#2d333b] flex items-center justify-center text-sm disabled:opacity-40"
+            className="hidden"
             onClick={() => setShowLinkBox(true)}
             disabled={sendingFile}
             title="分享链接"
@@ -358,7 +358,7 @@ export function ChatWindow({
           </button>
           <button
             type="button"
-            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-lg bg-[#21262d] hover:bg-[#2d333b] flex items-center justify-center text-sm disabled:opacity-40"
+            className="hidden"
             onClick={() => imageRef.current?.click()}
             disabled={sendingFile}
             title="发送图片"
@@ -389,7 +389,7 @@ export function ChatWindow({
           />
           <textarea
             className="flex-1 bg-[#f5f5f5] border border-[#e2e2e2] rounded-lg px-3 py-2.5 text-sm text-[#191919] outline-none focus:border-[#07c160] resize-none min-h-[40px] max-h-28"
-            placeholder="消息… 或点 🔗 分享链接 / 📎 传文件"
+            placeholder="输入消息（可直接粘贴链接）"
             rows={1}
             value={text}
             onChange={(e) => setText(e.target.value)}
