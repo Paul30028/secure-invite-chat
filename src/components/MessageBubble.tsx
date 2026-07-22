@@ -256,7 +256,7 @@ function FileBubble({ msg, trust }: { msg: ChatMessage; trust: ReturnType<typeof
           >
             <div className="font-medium">📎 {msg.file!.name}</div>
             <div className={`text-[11px] mt-1 ${msg.isMine ? "text-[#4c6b38]" : "text-[#888]"}`}>
-              {formatSize(msg.file!.size)} · 加密传送 · {isImage ? "点图放大 / 点此保存" : "点击保存到本机"}
+              {formatSize(msg.file!.size)} · 文件传送 · {isImage ? "点图放大 / 点此保存" : "点击保存到本机"}
             </div>
           </button>
         </div>
