@@ -49,7 +49,8 @@ function App() {
   const [showMembers, setShowMembers] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showMatrixDemo, setShowMatrixDemo] = useState(false);
-  const [showPublicNotices, setShowPublicNotices] = useState(false);
+  // 公开公告是应用首页，用户无需先进入设置。
+  const [showPublicNotices, setShowPublicNotices] = useState(true);
 
   const activeGroup = groups.find((g) => g.groupId === activeGroupId) || null;
   const mobileShowSidebar = !activeGroupId;
