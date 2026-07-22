@@ -485,6 +485,76 @@ export function useChatEngine() {
     [deviceId]
   );
 
+  /** 不连服务器即可打开的界面演示；仅本机保存，不会向任何人发送消息。 */
+  const openDemoChat = useCallback(async () => {
+    const groupId = "local-ui-demo";
+    setLocalMode(true);
+    localModeRef.current = true;
+    setLocalModeState(true);
+    wsClient.disconnect();
+    setStatus("local");
+
+    let group = getLocalGroups().find((item) => item.groupId === groupId);
+    if (!group) {
+      const secret = generateGroupSecret();
+      const key = await deriveGroupKey(secret, groupId);
+      const keyJwk = await exportKeyToString(key);
+      group = {
+        groupId,
+        name: "聊天示例",
+        displayName: "我",
+        isAdmin: true,
+        adminToken: "local-demo-admin",
+        keyJwk,
+        groupSecret: secret,
+        lastKnownInviteCode: "LOCAL-DEMO",
+      };
+      saveLocalGroup(group);
+      keyCache.current.set(groupId, key);
+    }
+
+    const cached = getCachedMessages(groupId);
+    const demoMessages: ChatMessage[] =
+      cached.length > 0
+        ? cached
+        : [
+            {
+              id: "demo-welcome",
+              groupId,
+              senderDeviceId: "demo-friend",
+              senderName: "小助手",
+              msgType: "text",
+              text: "欢迎来到聊天演示。这里不需要连接服务器，也不会向外发送消息。",
+              ts: Date.now() - 60_000,
+              isMine: false,
+              trust: "first_seen",
+            },
+            {
+              id: "demo-own-message",
+              groupId,
+              senderDeviceId: deviceId,
+              senderName: "我",
+              msgType: "text",
+              text: "这是新的微信式聊天界面。",
+              ts: Date.now() - 20_000,
+              isMine: true,
+              trust: "verified",
+            },
+          ];
+    if (cached.length === 0) saveCachedMessages(groupId, demoMessages);
+    setGroups(getLocalGroups());
+    setMessages((prev) => ({ ...prev, [groupId]: demoMessages }));
+    setMembersByGroup((prev) => ({
+      ...prev,
+      [groupId]: [
+        { deviceId, displayName: "我", joinedAt: Math.floor(Date.now() / 1000), isAdmin: true, online: true },
+        { deviceId: "demo-friend", displayName: "小助手", joinedAt: Math.floor(Date.now() / 1000), isAdmin: false, online: true },
+      ],
+    }));
+    setActiveGroupId(groupId);
+  }, [deviceId]);
+
+
   const createGroup = useCallback(
     (name: string, displayName: string) => {
       if (localModeRef.current) {
@@ -937,6 +1007,7 @@ export function useChatEngine() {
     securityAlert,
     clearSecurityAlert,
     createGroup,
+    openDemoChat,
     joinGroup,
     loadOlderMessages,
     sendMessage,
