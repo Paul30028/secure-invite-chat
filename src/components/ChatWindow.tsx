@@ -115,7 +115,7 @@ export function ChatWindow({
 
   return (
     <div
-      className="flex-1 flex flex-col h-full min-w-0 bg-[#0d1117] relative"
+      className="flex-1 flex flex-col h-full min-w-0 bg-[#f5f5f5] relative"
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -133,7 +133,7 @@ export function ChatWindow({
         </div>
       )}
 
-      <div className="h-14 shrink-0 border-b border-[#21262d] flex items-center justify-between px-3 sm:px-5 gap-2">
+      <div className="h-14 shrink-0 border-b border-[#e7e7e7] bg-white flex items-center justify-between px-3 sm:px-5 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {onBack && (
             <button
@@ -146,7 +146,7 @@ export function ChatWindow({
             </button>
           )}
           <div className="min-w-0">
-            <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+            <div className="text-sm font-semibold text-[#191919] truncate flex items-center gap-1.5">
               {group.name}
               {group.isAdmin && (
                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-600/50 text-indigo-200 font-normal">
@@ -154,7 +154,7 @@ export function ChatWindow({
                 </span>
               )}
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-[#999] truncate">
               {typeof memberCount === "number" ? `${memberCount} 人 · ` : ""}
               {group.isAdmin ? "管理端" : group.displayName} · 加密
             </div>
@@ -269,7 +269,7 @@ export function ChatWindow({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-3 sm:px-5 py-4">
+      <div className="flex-1 overflow-y-auto bg-[#f5f5f5] px-3 sm:px-5 py-4">
         {messages.length === 0 ? (
           <div className="text-center mt-10 px-4 space-y-2">
             <p className="text-xs text-slate-500">
@@ -321,7 +321,7 @@ export function ChatWindow({
       )}
 
       <div
-        className="border-t border-[#21262d] p-2 sm:p-3 relative"
+        className="border-t border-[#e7e7e7] bg-white p-2 sm:p-3 relative"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
         {showEmoji && (
@@ -388,7 +388,7 @@ export function ChatWindow({
             onChange={(e) => handleFile(e.target.files?.[0] || null)}
           />
           <textarea
-            className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-indigo-500 resize-none min-h-[40px] max-h-28"
+            className="flex-1 bg-[#f5f5f5] border border-[#e2e2e2] rounded-lg px-3 py-2.5 text-sm text-[#191919] outline-none focus:border-[#07c160] resize-none min-h-[40px] max-h-28"
             placeholder="消息… 或点 🔗 分享链接 / 📎 传文件"
             rows={1}
             value={text}
@@ -416,7 +416,7 @@ export function ChatWindow({
           />
           <button
             type="button"
-            className="px-3 sm:px-4 py-2.5 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 shrink-0 min-h-[40px]"
+            className="px-3 sm:px-4 py-2.5 text-sm rounded-lg bg-[#07c160] hover:bg-[#06ad58] text-white disabled:opacity-40 shrink-0 min-h-[40px]"
             disabled={!text.trim() || sendingFile}
             onClick={handleSend}
           >
