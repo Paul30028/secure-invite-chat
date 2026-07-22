@@ -25,9 +25,9 @@ function trustLabel(t?: TrustBadge): { text: string; cls: string } | null {
     case "bad_sig":
       return { text: "⚠ 签名无效", cls: "text-red-400" };
     case "unsigned":
-      return { text: "未签名", cls: "text-slate-500" };
+      return { text: "未签名", cls: "text-[#999]" };
     case "legacy":
-      return { text: "旧格式", cls: "text-slate-500" };
+      return { text: "旧格式", cls: "text-[#999]" };
     default:
       return null;
   }
@@ -136,8 +136,8 @@ function LinkCard({
     <div
       className={`rounded-2xl overflow-hidden border text-sm max-w-full ${
         isMine
-          ? "bg-indigo-600 border-indigo-500 text-white rounded-br-sm"
-          : "bg-[#21262d] border-[#30363d] text-slate-100 rounded-bl-sm"
+          ? "bg-[#95ec69] border-[#95ec69] text-[#191919] rounded-br-sm"
+          : "bg-white border-[#ededed] text-[#191919] rounded-bl-sm"
       }`}
     >
       <a
@@ -148,7 +148,7 @@ function LinkCard({
       >
         <div className="flex items-center gap-2 mb-1">
           <span className="text-base">🔗</span>
-          <span className={`text-[11px] font-medium ${isMine ? "text-indigo-100" : "text-sky-400"}`}>
+          <span className={`text-[11px] font-medium ${isMine ? "text-[#4c6b38]" : "text-sky-400"}`}>
             链接分享 · {host}
           </span>
         </div>
@@ -159,14 +159,14 @@ function LinkCard({
       </a>
       <div
         className={`flex border-t text-[11px] ${
-          isMine ? "border-indigo-500/50" : "border-[#30363d]"
+          isMine ? "border-[#80cf59]" : "border-[#30363d]"
         }`}
       >
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className={`flex-1 py-2 text-center ${isMine ? "hover:bg-indigo-500/40" : "hover:bg-[#2d333b]"}`}
+          className={`flex-1 py-2 text-center ${isMine ? "hover:bg-[#85d85e]" : "hover:bg-[#2d333b]"}`}
         >
           打开
         </a>
@@ -216,8 +216,8 @@ function FileBubble({ msg, trust }: { msg: ChatMessage; trust: ReturnType<typeof
         <div
           className={`rounded-2xl overflow-hidden text-left text-sm ${
             msg.isMine
-              ? "bg-indigo-600 text-white rounded-br-sm"
-              : "bg-[#21262d] text-slate-100 rounded-bl-sm"
+              ? "bg-[#95ec69] text-[#191919] rounded-br-sm"
+              : "bg-white text-[#191919] rounded-bl-sm"
           } ${msg.trust === "key_changed" || msg.trust === "bad_sig" ? "ring-1 ring-red-500" : ""}`}
         >
           {previewUrl && (
@@ -240,7 +240,7 @@ function FileBubble({ msg, trust }: { msg: ChatMessage; trust: ReturnType<typeof
             className="w-full px-4 py-3 text-left hover:opacity-90 transition-opacity"
           >
             <div className="font-medium">📎 {msg.file!.name}</div>
-            <div className={`text-[11px] mt-1 ${msg.isMine ? "text-indigo-100" : "text-slate-400"}`}>
+            <div className={`text-[11px] mt-1 ${msg.isMine ? "text-[#4c6b38]" : "text-[#888]"}`}>
               {formatSize(msg.file!.size)} · 加密传送 · {isImage ? "点图放大 / 点此保存" : "点击保存到本机"}
             </div>
           </button>
@@ -304,8 +304,8 @@ export function MessageBubble({ msg }: { msg: ChatMessage }) {
           <div
             className={`rounded-2xl px-4 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap ${
               msg.isMine
-                ? "bg-indigo-600 text-white rounded-br-sm"
-                : "bg-[#21262d] text-slate-100 rounded-bl-sm"
+                ? "bg-[#95ec69] text-[#191919] rounded-br-sm"
+                : "bg-white text-[#191919] rounded-bl-sm"
             } ${msg.decryptError ? "border border-red-500/60 italic opacity-80" : ""} ${
               msg.trust === "key_changed" || msg.trust === "bad_sig" ? "ring-1 ring-red-500" : ""
             }`}
