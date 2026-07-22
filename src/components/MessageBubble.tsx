@@ -19,7 +19,7 @@ function trustLabel(t?: TrustBadge): { text: string; cls: string } | null {
     case "verified":
       return { text: "已签名", cls: "text-emerald-400" };
     case "first_seen":
-      return { text: "新设备", cls: "text-sky-400" };
+      return { text: "新设备", cls: "text-[#576b95]" };
     case "key_changed":
       return { text: "⚠ 密钥变更", cls: "text-red-400 font-semibold" };
     case "bad_sig":
@@ -31,6 +31,20 @@ function trustLabel(t?: TrustBadge): { text: string; cls: string } | null {
     default:
       return null;
   }
+}
+
+function ChatAvatar({ name, isMine }: { name?: string; isMine: boolean }) {
+  const label = isMine ? "我" : (name || "群").trim().slice(0, 1) || "群";
+  return (
+    <span
+      className={`grid h-9 w-9 shrink-0 place-items-center rounded-md text-sm font-medium ${
+        isMine ? "bg-[#07c160] text-white" : "bg-[#b7c2d0] text-white"
+      }`}
+      aria-hidden="true"
+    >
+      {label}
+    </span>
+  );
 }
 
 function downloadFile(msg: ChatMessage) {
@@ -148,7 +162,7 @@ function LinkCard({
       >
         <div className="flex items-center gap-2 mb-1">
           <span className="text-base">🔗</span>
-          <span className={`text-[11px] font-medium ${isMine ? "text-[#4c6b38]" : "text-sky-400"}`}>
+          <span className={`text-[11px] font-medium ${isMine ? "text-[#4c6b38]" : "text-[#576b95]"}`}>
             链接分享 · {host}
           </span>
         </div>
@@ -159,14 +173,14 @@ function LinkCard({
       </a>
       <div
         className={`flex border-t text-[11px] ${
-          isMine ? "border-[#80cf59]" : "border-[#30363d]"
+          isMine ? "border-[#80cf59]" : "border-[#e5e5e5]"
         }`}
       >
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className={`flex-1 py-2 text-center ${isMine ? "hover:bg-[#85d85e]" : "hover:bg-[#2d333b]"}`}
+          className={`flex-1 py-2 text-center ${isMine ? "hover:bg-[#85d85e]" : "hover:bg-[#f2f2f2]"}`}
         >
           打开
         </a>
@@ -174,7 +188,7 @@ function LinkCard({
           type="button"
           onClick={() => void copy()}
           className={`flex-1 py-2 border-l ${
-            isMine ? "border-indigo-500/50 hover:bg-indigo-500/40" : "border-[#30363d] hover:bg-[#2d333b]"
+            isMine ? "border-[#e5e5e5] hover:bg-[#f2f2f2]" : "border-[#e5e5e5] hover:bg-[#f2f2f2]"
           }`}
         >
           {copied ? "已复制" : "复制链接"}
@@ -205,8 +219,9 @@ function FileBubble({ msg, trust }: { msg: ChatMessage; trust: ReturnType<typeof
   }, [previewUrl]);
 
   return (
-    <div className={`flex ${msg.isMine ? "justify-end" : "justify-start"} mb-3`}>
-      <div className={`max-w-[85%] sm:max-w-[70%] flex flex-col ${msg.isMine ? "items-end" : "items-start"}`}>
+    <div className={`flex items-start gap-2 ${msg.isMine ? "justify-end" : "justify-start"} mb-3`}>
+      {!msg.isMine && <ChatAvatar name={msg.senderName} isMine={false} />}
+      <div className={`max-w-[78%] sm:max-w-[70%] flex flex-col ${msg.isMine ? "items-end" : "items-start"}`}>
         {!msg.isMine && (
           <span className="text-xs text-slate-400 mb-1 px-1 flex items-center gap-2">
             {msg.senderName}
@@ -247,6 +262,7 @@ function FileBubble({ msg, trust }: { msg: ChatMessage; trust: ReturnType<typeof
         </div>
         <span className="text-[10px] text-slate-500 mt-1 px-1">{formatTime(msg.ts)}</span>
       </div>
+      {msg.isMine && <ChatAvatar name={msg.senderName} isMine />}
 
       {lightbox && previewUrl && (
         <ImageLightbox
@@ -266,7 +282,7 @@ export function MessageBubble({ msg }: { msg: ChatMessage }) {
   if (msg.blocked) {
     return (
       <div className="flex justify-center mb-3">
-        <span className="max-w-[85%] rounded-lg border border-red-500/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+        <span className="max-w-[85%] rounded-lg border border-red-500/50 bg-red-50 px-3 py-2 text-xs text-red-700">
           {msg.text}
         </span>
       </div>
@@ -289,8 +305,9 @@ export function MessageBubble({ msg }: { msg: ChatMessage }) {
       : "";
 
   return (
-    <div className={`flex ${msg.isMine ? "justify-end" : "justify-start"} mb-3`}>
-      <div className={`max-w-[85%] sm:max-w-[70%] ${msg.isMine ? "items-end" : "items-start"} flex flex-col`}>
+    <div className={`flex items-start gap-2 ${msg.isMine ? "justify-end" : "justify-start"} mb-3`}>
+      {!msg.isMine && <ChatAvatar name={msg.senderName} isMine={false} />}
+      <div className={`max-w-[78%] sm:max-w-[70%] ${msg.isMine ? "items-end" : "items-start"} flex flex-col`}>
         {!msg.isMine && (
           <span className="text-xs text-slate-400 mb-1 px-1 flex items-center gap-2">
             {msg.senderName}
@@ -317,7 +334,7 @@ export function MessageBubble({ msg }: { msg: ChatMessage }) {
                   href={p.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline text-blue-300 hover:text-blue-200 break-all"
+                  className="underline text-[#576b95] hover:text-[#40567f] break-all"
                 >
                   {p.text}
                 </a>
@@ -332,6 +349,7 @@ export function MessageBubble({ msg }: { msg: ChatMessage }) {
           {msg.isMine && trust ? ` · ${trust.text}` : ""}
         </span>
       </div>
+      {msg.isMine && <ChatAvatar name={msg.senderName} isMine />}
     </div>
   );
 }
