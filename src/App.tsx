@@ -28,6 +28,7 @@ function App() {
     securityAlert,
     clearSecurityAlert,
     createGroup,
+    openDemoChat,
     joinGroup,
     sendMessage,
     sendFile,
@@ -96,6 +97,7 @@ function App() {
             onSelect={setActiveGroupId}
             onCreate={() => setShowCreate(true)}
             onJoin={() => setShowJoin(true)}
+            onOpenDemo={() => void openDemoChat()}
             onSettings={() => setShowSettings(true)}
             onOpenAdmin={() => setShowAdmin(true)}
             status={status}
@@ -186,7 +188,12 @@ function App() {
         />
       )}
       {showMatrixDemo && <MatrixDemoModal onClose={() => setShowMatrixDemo(false)} />}
-      {showPublicNotices && <PublicNoticeModal onClose={() => setShowPublicNotices(false)} />}
+      {showPublicNotices && (
+        <PublicNoticeModal
+          onClose={() => setShowPublicNotices(false)}
+          onEnterChat={() => void openDemoChat()}
+        />
+      )}
 
       {securityAlert && (
         <div className="fixed top-14 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md bg-red-900/95 border border-red-500 text-white text-sm px-4 py-3 rounded-lg shadow-xl z-[70]">
