@@ -370,6 +370,62 @@ async def handle_connection(ws):
                 await broadcast(group_id, members_payload(group_id))
                 log.info(f"群 {group_id} 踢出设备 {target}")
 
+            elif mtype == "call_signal":
+                group_id = msg.get("group_id")
+                device_id = msg.get("device_id")
+                target = msg.get("target_device_id")
+                call_id = msg.get("call_id")
+                signal = msg.get("signal")
+                mode = msg.get("mode")
+                valid_signals = {"offer", "answer", "ice", "hangup", "reject"}
+                if (
+                    not isinstance(group_id, str)
+                    or not isinstance(device_id, str)
+                    or not isinstance(target, str)
+                    or not isinstance(call_id, str)
+                    or signal not in valid_signals
+                    or mode not in {"audio", "video"}
+                ):
+                    await send_error(ws, "invalid_call_signal")
+                    continue
+                if not db.is_member(group_id, device_id) or not db.is_member(group_id, target):
+                    await send_error(ws, "not_a_member")
+                    continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
+                    await send_error(ws, "not_authenticated")
+                    continue
+                if target not in online_device_ids(group_id):
+                    await send_error(ws, "call_target_offline")
+                    continue
+
+                sdp = msg.get("sdp")
+                candidate = msg.get("candidate")
+                if signal in {"offer", "answer"} and not isinstance(sdp, dict):
+                    await send_error(ws, "invalid_call_signal")
+                    continue
+                if signal == "ice" and not isinstance(candidate, dict):
+                    await send_error(ws, "invalid_call_signal")
+                    continue
+                if len(json.dumps({"sdp": sdp, "candidate": candidate})) > 48_000:
+                    await send_error(ws, "invalid_call_signal")
+                    continue
+
+                await send_to_device(
+                    group_id,
+                    target,
+                    {
+                        "type": "call_signal",
+                        "group_id": group_id,
+                        "call_id": call_id,
+                        "from_device_id": device_id,
+                        "from_name": msg.get("sender_name") or "成员",
+                        "signal": signal,
+                        "mode": mode,
+                        **({"sdp": sdp} if isinstance(sdp, dict) else {}),
+                        **({"candidate": candidate} if isinstance(candidate, dict) else {}),
+                    },
+                )
+
             elif mtype == "send_message":
                 group_id = msg.get("group_id")
                 device_id = msg.get("device_id")
