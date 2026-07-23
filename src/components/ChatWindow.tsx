@@ -36,8 +36,10 @@ export function ChatWindow({
   const [text, setText] = useState("");
   const [fileProgress, setFileProgress] = useState<FileSendProgress | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const imageRef = useRef<HTMLInputElement>(null);
 
   const sendingFile = fileProgress !== null && fileProgress.stage !== "done";
 
@@ -53,6 +55,7 @@ export function ChatWindow({
   };
 
   const handleFile = async (file: File | null) => {
+    setShowActions(false);
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
       alert(`文件过大（${formatSize(file.size)}），当前上限 ${MAX_FILE_BYTES / 1024 / 1024}MB`);
@@ -98,12 +101,12 @@ export function ChatWindow({
         </div>
       )}
 
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#dedede] bg-[#f7f7f7] px-3 sm:px-5">
+      <header className="flex h-12 shrink-0 items-center justify-between border-b border-[#dedede] bg-[#f7f7f7] px-2 sm:h-14 sm:px-5">
         <div className="flex min-w-0 items-center gap-2">
           {onBack && (
             <button
               type="button"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xl text-[#191919] hover:bg-[#e8e8e8] sm:hidden"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[30px] font-light leading-none text-[#191919] active:bg-[#e8e8e8] sm:hidden"
               onClick={onBack}
               aria-label="返回聊天列表"
             >
@@ -111,7 +114,7 @@ export function ChatWindow({
             </button>
           )}
           <div className="min-w-0">
-            <h1 className="truncate text-[16px] font-medium text-[#191919]">{group.name}</h1>
+            <h1 className="truncate text-[17px] font-medium text-[#191919]">{group.name}</h1>
             <p className="truncate text-[11px] text-[#999]">
               {typeof memberCount === "number" ? `${memberCount} 位成员` : group.displayName}
             </p>
@@ -120,7 +123,7 @@ export function ChatWindow({
         {onOpenMembers && (
           <button
             type="button"
-            className="grid h-9 w-9 place-items-center rounded-full text-lg text-[#555] hover:bg-[#e8e8e8]"
+            className="grid h-10 w-10 place-items-center rounded-full text-[22px] text-[#555] active:bg-[#e8e8e8]"
             onClick={onOpenMembers}
             aria-label="查看聊天成员"
             title="聊天成员"
@@ -130,7 +133,7 @@ export function ChatWindow({
         )}
       </header>
 
-      <section className="flex-1 overflow-y-auto px-3 py-4 sm:px-5">
+      <section className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-5 sm:py-4">
         {messages.length === 0 ? (
           <div className="mx-auto mt-16 max-w-xs text-center">
             <p className="text-sm text-[#999]">暂时没有消息</p>
@@ -174,17 +177,39 @@ export function ChatWindow({
         className="border-t border-[#d8d8d8] bg-[#f7f7f7] px-2 py-2 sm:px-3"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
+        {showActions && (
+          <div className="mb-2 grid grid-cols-3 gap-2 rounded-xl bg-white p-2 shadow-sm sm:max-w-sm">
+            <button type="button" className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg text-xs text-[#555] active:bg-[#f2f2f2]" onClick={() => imageRef.current?.click()} disabled={sendingFile}>
+              <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f5f5f5] text-xl">▣</span>图片
+            </button>
+            <button type="button" className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg text-xs text-[#555] active:bg-[#f2f2f2]" onClick={() => fileRef.current?.click()} disabled={sendingFile}>
+              <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f5f5f5] text-xl">⌑</span>文件
+            </button>
+            {localMode && onSimulatePeer ? (
+              <button type="button" className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg text-xs text-[#555] active:bg-[#f2f2f2]" onClick={() => { setShowActions(false); onSimulatePeer(); }}>
+                <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f5f5f5] text-xl">◌</span>测试消息
+              </button>
+            ) : <div className="min-h-20" />}
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <button
             type="button"
             className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-xl text-[#555] hover:bg-[#e8e8e8] disabled:opacity-40"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => setShowActions((open) => !open)}
             disabled={sendingFile}
-            title={`发送文件（最大 ${MAX_FILE_BYTES / 1024 / 1024}MB）`}
-            aria-label="发送文件"
+            title="更多发送方式"
+            aria-label="更多发送方式"
           >
             {sendingFile ? "…" : "+"}
           </button>
+          <input
+            ref={imageRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => void handleFile(event.target.files?.[0] || null)}
+          />
           <input
             ref={fileRef}
             type="file"
