@@ -32,15 +32,17 @@ export function useCallEngine(deviceId: string) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
   const activeRef = useRef<ActiveCall | null>(null);
   const pendingRef = useRef<CallSignal | null>(null);
   const queuedCandidates = useRef<RTCIceCandidateInit[]>([]);
 
   const stopMedia = useCallback(() => {
-    localStream?.getTracks().forEach((track) => track.stop());
+    localStreamRef.current?.getTracks().forEach((track) => track.stop());
+    localStreamRef.current = null;
     setLocalStream(null);
     setRemoteStream(null);
-  }, [localStream]);
+  }, []);
 
   const finish = useCallback((notify = false, signal: "hangup" | "reject" = "hangup") => {
     const active = activeRef.current;
@@ -104,6 +106,7 @@ export function useCallEngine(deviceId: string) {
       audio: true,
       video: mode === "video" ? { facingMode: "user" } : false,
     });
+    localStreamRef.current = stream;
     setLocalStream(stream);
     return stream;
   }, []);
