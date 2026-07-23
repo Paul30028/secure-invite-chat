@@ -15,6 +15,7 @@ import { MatrixDemoModal } from "./components/MatrixDemoModal";
 import { PublicNoticeModal } from "./components/PublicNoticeModal";
 import { CallOverlay } from "./components/CallOverlay";
 import { useCallEngine } from "./hooks/useCallEngine";
+import { CallPeerPicker } from "./components/CallPeerPicker";
 
 function App() {
   const {
@@ -54,6 +55,7 @@ function App() {
   const [showMembers, setShowMembers] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showMatrixDemo, setShowMatrixDemo] = useState(false);
+  const [callPickerMode, setCallPickerMode] = useState<"audio" | "video" | null>(null);
   // 公开公告是应用首页，用户无需先进入设置。
   const [showPublicNotices, setShowPublicNotices] = useState(true);
 
@@ -61,7 +63,7 @@ function App() {
   const mobileShowSidebar = !activeGroupId;
   const showOnboarding = groups.length === 0 && !activeGroup;
   const activeMembers = activeGroup ? membersByGroup[activeGroup.groupId] || [] : [];
-  const callPeer = activeMembers.find((member) => member.deviceId !== deviceId && member.online) || null;
+  const callPeers = activeMembers.filter((member) => member.deviceId !== deviceId && member.online);
 
   // 创建群后弹出邀请码（真机验收：管理端发码）
   const prevAdminIds = useRef<Set<string>>(new Set());
@@ -135,13 +137,9 @@ function App() {
               if (!localMode) refreshMembers(activeGroup.groupId);
               setShowMembers(true);
             }}
-            callAvailable={!localMode && !!callPeer}
-            onStartAudioCall={() => {
-              if (callPeer) void callEngine.startCall(activeGroup.groupId, { deviceId: callPeer.deviceId, displayName: callPeer.displayName }, "audio", activeGroup.displayName);
-            }}
-            onStartVideoCall={() => {
-              if (callPeer) void callEngine.startCall(activeGroup.groupId, { deviceId: callPeer.deviceId, displayName: callPeer.displayName }, "video", activeGroup.displayName);
-            }}
+            callAvailable={!localMode && callPeers.length > 0}
+            onStartAudioCall={() => setCallPickerMode("audio")}
+            onStartVideoCall={() => setCallPickerMode("video")}
             memberCount={activeMembers.length || undefined}
             onLeave={() => leaveGroup(activeGroup.groupId)}
             onBack={() => setActiveGroupId(null)}
@@ -204,6 +202,19 @@ function App() {
         <PublicNoticeModal
           onClose={() => setShowPublicNotices(false)}
           onEnterChat={() => void openDemoChat()}
+        />
+      )}
+
+      {callPickerMode && activeGroup && (
+        <CallPeerPicker
+          mode={callPickerMode}
+          peers={callPeers}
+          onClose={() => setCallPickerMode(null)}
+          onSelect={(peer) => {
+            const mode = callPickerMode;
+            setCallPickerMode(null);
+            void callEngine.startCall(activeGroup.groupId, { deviceId: peer.deviceId, displayName: peer.displayName }, mode, activeGroup.displayName);
+          }}
         />
       )}
 
