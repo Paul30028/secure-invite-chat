@@ -32,8 +32,18 @@ const notices: Notice[] = [
   },
 ];
 
-export function PublicNoticeModal({ onClose }: { onClose: () => void }) {
+export function PublicNoticeModal({
+  onClose,
+  onEnterChat,
+}: {
+  onClose: () => void;
+  onEnterChat: () => void;
+}) {
   const [selected, setSelected] = useState<Notice | null>(null);
+  const enterChat = () => {
+    onEnterChat();
+    onClose();
+  };
 
   if (selected) {
     return (
@@ -45,7 +55,7 @@ export function PublicNoticeModal({ onClose }: { onClose: () => void }) {
           <h1 className="mt-2 text-2xl font-bold">{selected.title}</h1>
           <p className="mt-5 rounded-2xl bg-white p-5 text-sm leading-7 text-[#545860] shadow-[0_4px_18px_rgba(0,0,0,0.05)]">{selected.detail}</p>
           <div className="mt-auto pt-8">
-            <button type="button" className="w-full rounded-xl bg-[#07c160] py-3.5 text-base font-semibold text-white" onClick={onClose}>进入聊天</button>
+            <button type="button" className="w-full rounded-xl bg-[#07c160] py-3.5 text-base font-semibold text-white" onClick={enterChat}>进入聊天</button>
           </div>
         </div>
       </main>
@@ -75,7 +85,7 @@ export function PublicNoticeModal({ onClose }: { onClose: () => void }) {
           ))}
         </section>
         <div className="mt-auto pt-8">
-          <button type="button" className="w-full rounded-xl bg-[#07c160] py-3.5 text-base font-semibold text-white shadow-sm active:bg-[#06ad58]" onClick={onClose}>进入聊天</button>
+          <button type="button" className="w-full rounded-xl bg-[#07c160] py-3.5 text-base font-semibold text-white shadow-sm active:bg-[#06ad58]" onClick={enterChat}>进入聊天</button>
         </div>
       </div>
     </main>
