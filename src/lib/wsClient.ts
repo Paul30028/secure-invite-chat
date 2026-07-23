@@ -341,6 +341,7 @@ export class SicWsClient {
     callId: string;
     signal: CallSignal["signal"];
     mode: CallSignal["mode"];
+    senderName: string;
     sdp?: RTCSessionDescriptionInit;
     candidate?: RTCIceCandidateInit;
   }) {
@@ -352,6 +353,7 @@ export class SicWsClient {
       call_id: params.callId,
       signal: params.signal,
       mode: params.mode,
+      sender_name: params.senderName,
       ...(params.sdp ? { sdp: params.sdp } : {}),
       ...(params.candidate ? { candidate: params.candidate } : {}),
     });
