@@ -3,6 +3,8 @@ import { MessageBubble } from "./MessageBubble";
 import type { ChatMessage, LocalGroup } from "../lib/types";
 import { MAX_FILE_BYTES, type FileSendProgress } from "../hooks/useChatEngine";
 
+const EMOJIS = ["😀", "😂", "🥰", "😢", "😮", "👍", "👎", "🙏", "🎉", "❤️", "🔥", "✅"];
+
 function formatSize(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -37,6 +39,7 @@ export function ChatWindow({
   const [fileProgress, setFileProgress] = useState<FileSendProgress | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
@@ -56,6 +59,7 @@ export function ChatWindow({
 
   const handleFile = async (file: File | null) => {
     setShowActions(false);
+    setShowEmoji(false);
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
       alert(`文件过大（${formatSize(file.size)}），当前上限 ${MAX_FILE_BYTES / 1024 / 1024}MB`);
@@ -177,6 +181,24 @@ export function ChatWindow({
         className="border-t border-[#d8d8d8] bg-[#f7f7f7] px-2 py-2 sm:px-3"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
+        {showEmoji && (
+          <div className="mb-2 grid grid-cols-6 gap-1 rounded-xl bg-white p-2 shadow-sm sm:max-w-sm">
+            {EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                className="grid h-10 place-items-center rounded-lg text-xl active:bg-[#f2f2f2]"
+                onClick={() => {
+                  setText((value) => value + emoji);
+                  setShowEmoji(false);
+                }}
+                aria-label={emoji}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
         {showActions && (
           <div className="mb-2 grid grid-cols-3 gap-2 rounded-xl bg-white p-2 shadow-sm sm:max-w-sm">
             <button type="button" className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg text-xs text-[#555] active:bg-[#f2f2f2]" onClick={() => imageRef.current?.click()} disabled={sendingFile}>
@@ -192,7 +214,19 @@ export function ChatWindow({
             ) : <div className="min-h-20" />}
           </div>
         )}
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-1.5">
+          <button
+            type="button"
+            className="grid h-10 w-9 shrink-0 place-items-center rounded-lg text-xl text-[#555] active:bg-[#e8e8e8]"
+            onClick={() => {
+              setShowEmoji((open) => !open);
+              setShowActions(false);
+            }}
+            aria-label="选择表情"
+            title="表情"
+          >
+            ☺
+          </button>
           <button
             type="button"
             className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-xl text-[#555] hover:bg-[#e8e8e8] disabled:opacity-40"
