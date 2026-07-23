@@ -97,7 +97,6 @@ function App() {
             onSelect={setActiveGroupId}
             onCreate={() => setShowCreate(true)}
             onJoin={() => setShowJoin(true)}
-            onOpenDemo={() => void openDemoChat()}
             onSettings={() => setShowSettings(true)}
             onOpenAdmin={() => setShowAdmin(true)}
             status={status}
@@ -115,6 +114,7 @@ function App() {
             onOpenSettings={() => setShowSettings(true)}
             onCreate={() => setShowCreate(true)}
             onJoin={() => setShowJoin(true)}
+            onOpenDemo={() => void openDemoChat()}
           />
         ) : activeGroup ? (
           <ChatWindow
