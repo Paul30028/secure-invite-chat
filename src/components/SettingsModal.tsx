@@ -37,6 +37,7 @@ export function SettingsModal({
   const [localOn, setLocalOn] = useState(() => isLocalMode());
   const [matrixUrl, setMatrixUrl] = useState(getMatrixHomeserverUrl());
   const [matrixProbe, setMatrixProbe] = useState<MatrixProbeState>({ status: "idle" });
+  const [wsError, setWsError] = useState("");
   const info = useMemo(() => classifyWsUrl(url), [url]);
   const matrixInfo = useMemo(() => {
     try {
@@ -59,8 +60,13 @@ export function SettingsModal({
   const hints = getPhoneWsHints();
 
   const save = () => {
+    if (!localOn && !info.ready) {
+      setWsError(info.hint);
+      return;
+    }
+    setWsError("");
     setLocalMode(localOn);
-    if (!localOn) setWsUrl(url);
+    if (!localOn) setWsUrl(info.normalized);
     if (matrixInfo.valid) setMatrixHomeserverUrl(matrixInfo.normalized);
     onSaved();
     onClose();
@@ -166,9 +172,9 @@ export function SettingsModal({
         </section>
 
         <section>
-          <h3 className="text-sm font-semibold text-slate-200 mb-1">现有聊天 Demo</h3>
+          <h3 className="text-sm font-semibold text-slate-200 mb-1">聊天中继服务器</h3>
           <p className="text-xs text-slate-500 mb-4">
-            手机与电脑同一 Wi‑Fi 可直接测试文字、链接和小文件。
+            输入服务器地址会自动退出单机演示；保存后立即尝试连接。
           </p>
 
           <div className="flex flex-wrap gap-2 mb-3">
@@ -227,11 +233,15 @@ export function SettingsModal({
           <input
             className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2.5 mb-1 text-sm font-mono outline-none focus:border-indigo-500"
             value={url}
-            onChange={(event) => setUrl(event.target.value)}
-            placeholder="ws://192.168.x.x:8765"
-            disabled={localOn}
+            onFocus={() => setLocalOn(false)}
+            onChange={(event) => {
+              setLocalOn(false);
+              setWsError("");
+              setUrl(event.target.value);
+            }}
+            placeholder="ws://212.135.212.22:8765"
           />
-          <p className="text-[11px] text-slate-500 mb-4">{info.hint}</p>
+          <p className={`text-[11px] mb-4 ${wsError ? "text-red-300" : "text-slate-500"}`}>{wsError || info.hint}</p>
 
           <label className="flex items-center justify-between gap-3 text-xs text-slate-400 mb-5">
             <span>单机调试（仅在本设备演示）</span>
@@ -239,7 +249,10 @@ export function SettingsModal({
               type="button"
               role="switch"
               aria-checked={localOn}
-              onClick={() => setLocalOn((value) => !value)}
+              onClick={() => {
+              setWsError("");
+              setLocalOn((value) => !value);
+            }}
               className={`shrink-0 w-11 h-6 rounded-full relative ${
                 localOn ? "bg-amber-500" : "bg-slate-600"
               }`}
@@ -270,7 +283,7 @@ export function SettingsModal({
             className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white"
             onClick={save}
           >
-            保存设置
+            {localOn ? "保存单机设置" : "保存并连接"}
           </button>
         </div>
       </div>
