@@ -19,7 +19,12 @@ export function CallPeerPicker({
           <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-xl text-[#666] active:bg-[#e8e8e8]" aria-label="关闭">×</button>
         </div>
         <div className="overflow-hidden rounded-xl bg-white">
-          {peers.map((peer) => (
+          {peers.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <p className="text-sm text-[#666]">暂无在线成员</p>
+              <p className="mt-2 text-xs leading-5 text-[#999]">邀请另一位成员加入并保持在线后，即可发起{mode === "video" ? "视频" : "语音"}通话。</p>
+            </div>
+          ) : peers.map((peer) => (
             <button key={peer.deviceId} type="button" onClick={() => onSelect(peer)} className="flex w-full items-center gap-3 border-b border-[#f0f0f0] px-3 py-3 text-left last:border-0 active:bg-[#f5f5f5]">
               <span className="grid h-10 w-10 place-items-center rounded-md bg-[#8aa1b5] text-base font-medium text-white">{peer.displayName.slice(0, 1)}</span>
               <span className="min-w-0 flex-1">
