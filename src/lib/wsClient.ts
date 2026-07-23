@@ -31,6 +31,17 @@ export type ServerMember = {
   online: boolean;
 };
 
+export type CallSignal = {
+  group_id: string;
+  call_id: string;
+  from_device_id: string;
+  from_name: string;
+  signal: "offer" | "answer" | "ice" | "hangup" | "reject";
+  mode: "audio" | "video";
+  sdp?: RTCSessionDescriptionInit;
+  candidate?: RTCIceCandidateInit;
+};
+
 type ServerEventMap = {
   group_created: { group_id: string; name: string; invite_code: string; admin_token: string };
   joined: { group_id: string; name: string };
@@ -47,6 +58,7 @@ type ServerEventMap = {
   members: { group_id: string; members: ServerMember[] };
   member_kicked: { group_id: string; target_device_id: string };
   kicked: { group_id: string; reason?: string };
+  call_signal: CallSignal;
   /** 服务器主动下发：手机同 Wi‑Fi 建议地址 */
   auth_challenge: { challenge: string };
   server_info: {
@@ -319,6 +331,29 @@ export class SicWsClient {
       ciphertext: params.ciphertext,
       iv: params.iv,
       sender_name: params.senderName,
+    });
+  }
+
+  sendCallSignal(params: {
+    groupId: string;
+    deviceId: string;
+    targetDeviceId: string;
+    callId: string;
+    signal: CallSignal["signal"];
+    mode: CallSignal["mode"];
+    sdp?: RTCSessionDescriptionInit;
+    candidate?: RTCIceCandidateInit;
+  }) {
+    this.send({
+      type: "call_signal",
+      group_id: params.groupId,
+      device_id: params.deviceId,
+      target_device_id: params.targetDeviceId,
+      call_id: params.callId,
+      signal: params.signal,
+      mode: params.mode,
+      ...(params.sdp ? { sdp: params.sdp } : {}),
+      ...(params.candidate ? { candidate: params.candidate } : {}),
     });
   }
 
