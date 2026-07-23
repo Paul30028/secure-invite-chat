@@ -18,6 +18,9 @@ export function ChatWindow({
   onSendFile,
   onSimulatePeer,
   onOpenMembers,
+  onStartAudioCall,
+  onStartVideoCall,
+  callAvailable,
   memberCount,
   onBack,
   localMode,
@@ -29,6 +32,9 @@ export function ChatWindow({
   onSimulatePeer?: () => void;
   onOpenAdmin: () => void;
   onOpenMembers?: () => void;
+  onStartAudioCall?: () => void;
+  onStartVideoCall?: () => void;
+  callAvailable?: boolean;
   memberCount?: number;
   onLeave: () => void;
   onBack?: () => void;
@@ -124,17 +130,25 @@ export function ChatWindow({
             </p>
           </div>
         </div>
-        {onOpenMembers && (
-          <button
-            type="button"
-            className="grid h-10 w-10 place-items-center rounded-full text-[22px] text-[#555] active:bg-[#e8e8e8]"
-            onClick={onOpenMembers}
-            aria-label="查看聊天成员"
-            title="聊天成员"
-          >
-            ⋯
-          </button>
-        )}
+        <div className="flex items-center gap-0.5">
+          {callAvailable && (
+            <>
+              <button type="button" className="grid h-10 w-9 place-items-center rounded-full text-lg text-[#555] active:bg-[#e8e8e8]" onClick={onStartAudioCall} aria-label="语音通话" title="语音通话">☎</button>
+              <button type="button" className="grid h-10 w-9 place-items-center rounded-full text-lg text-[#555] active:bg-[#e8e8e8]" onClick={onStartVideoCall} aria-label="视频通话" title="视频通话">▣</button>
+            </>
+          )}
+          {onOpenMembers && (
+            <button
+              type="button"
+              className="grid h-10 w-9 place-items-center rounded-full text-[22px] text-[#555] active:bg-[#e8e8e8]"
+              onClick={onOpenMembers}
+              aria-label="查看聊天成员"
+              title="聊天成员"
+            >
+              ⋯
+            </button>
+          )}
+        </div>
       </header>
 
       <section className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-5 sm:py-4">
