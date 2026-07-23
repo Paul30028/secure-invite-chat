@@ -174,7 +174,7 @@ export function SettingsModal({
         <section>
           <h3 className="text-sm font-semibold text-slate-200 mb-1">聊天中继服务器</h3>
           <p className="text-xs text-slate-500 mb-4">
-            输入服务器地址会自动退出单机演示；保存后立即尝试连接。
+            新 APK 默认已填入 secureinchat.com；保存后立即尝试连接。
           </p>
 
           <div className="flex flex-wrap gap-2 mb-3">
@@ -200,13 +200,14 @@ export function SettingsModal({
             </button>
             <button
               type="button"
-              className="px-2.5 py-1.5 text-[11px] rounded-md bg-[#21262d] text-slate-300"
+              className="px-2.5 py-1.5 text-[11px] rounded-md bg-emerald-700 text-white"
               onClick={() => {
                 setLocalOn(false);
+                setWsError("");
                 setUrl(getDefaultWsUrl());
               }}
             >
-              默认
+              secureinchat.com
             </button>
           </div>
 
@@ -239,7 +240,7 @@ export function SettingsModal({
               setWsError("");
               setUrl(event.target.value);
             }}
-            placeholder="ws://212.135.212.22:8765"
+            placeholder="wss://secureinchat.com"
           />
           <p className={`text-[11px] mb-4 ${wsError ? "text-red-300" : "text-slate-500"}`}>{wsError || info.hint}</p>
 
