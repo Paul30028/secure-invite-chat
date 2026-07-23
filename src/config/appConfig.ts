@@ -10,9 +10,8 @@
  * 2. 构建时环境变量 VITE_WS_URL
  * 3. 下方 DEFAULT_WS_URL 常量
  *
- * 中国区部署：把 VITE_WS_URL 或 DEFAULT_WS_URL 改成
- *   ws://你的服务器公网或内网IP:8765
- * 后期上中继时改为 wss://域名 即可，协议层不变。
+ * 正式发布默认连接 wss://secureinchat.com。
+ * 如需临时切换测试服务器，可在构建时设置 VITE_WS_URL，或在设置页修改。
  */
 
 /** 当前连接架构阶段（仅文档/埋点用，不改变传输） */
@@ -33,7 +32,7 @@ export const PROTOCOL = {
 
 /**
  * 构建默认后端地址（直连）
- * 生产中国区：在 .env 或 CI 中设置 VITE_WS_URL=ws://x.x.x.x:8765
+ * 正式 APK 默认使用已启用 TLS 的 wss://secureinchat.com；构建时可用 VITE_WS_URL 覆盖。
  */
 const buildEnv = (import.meta as unknown as {
   env?: Record<string, string | boolean | undefined>;
@@ -43,7 +42,7 @@ export const DEFAULT_WS_URL: string = (() => {
   const configuredUrl = typeof buildEnv?.VITE_WS_URL === "string" ? buildEnv.VITE_WS_URL.trim() : "";
   if (configuredUrl) return configuredUrl;
   // 桌面开发默认本机；原生端无 env 时用占位，启动后由用户填或设置页引导
-  return "ws://127.0.0.1:8765";
+  return "wss://secureinchat.com";
 })();
 
 /**
