@@ -20,6 +20,7 @@ export function Onboarding({
   onOpenSettings,
   onCreate,
   onJoin,
+  onOpenDemo,
 }: {
   status: ConnStatus;
   phoneHints?: string[];
@@ -27,6 +28,7 @@ export function Onboarding({
   onOpenSettings: () => void;
   onCreate: () => void;
   onJoin: () => void;
+  onOpenDemo: () => void;
 }) {
   const [url, setUrl] = useState(getWsUrl());
   const ready = status === "online" || status === "local";
@@ -82,6 +84,18 @@ export function Onboarding({
             : status === "local"
               ? "单机模式 · 请改连服务器才能手机互通"
               : "未连接 · 按下面步骤填写"}
+      </div>
+
+
+      <div className="mx-4 mb-4">
+        <button
+          type="button"
+          onClick={onOpenDemo}
+          className="w-full rounded-2xl bg-[#07c160] px-5 py-4 text-left text-white shadow-sm hover:bg-[#06ad58]"
+        >
+          <span className="block text-base font-semibold">直接体验聊天界面</span>
+          <span className="mt-1 block text-[12px] text-white/80">无需服务器；仅在本机显示示例消息</span>
+        </button>
       </div>
 
       {/* 三步跑通 */}
