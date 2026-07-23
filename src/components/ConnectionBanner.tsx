@@ -15,7 +15,7 @@ export function ConnectionBanner({
       <button
         type="button"
         onClick={onSettings}
-        className="w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 border-b bg-amber-950/70 border-amber-900 text-amber-100"
+        className="w-full text-left px-3 py-1.5 text-[11px] flex items-center gap-2 border-b bg-[#fff8e8] border-[#f1d8a5] text-[#805d1b] sm:px-4 sm:py-2 sm:text-[12px]"
       >
         <span className="w-2 h-2 rounded-full shrink-0 bg-amber-400" />
         <span className="flex-1">单机模式 · 手机无法进群，请连服务器</span>
@@ -30,8 +30,8 @@ export function ConnectionBanner({
       onClick={onSettings}
       className={`w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 border-b ${
         status === "connecting"
-          ? "bg-amber-950/80 border-amber-900 text-amber-100"
-          : "bg-red-950/80 border-red-900 text-red-100"
+          ? "bg-[#fff8e8] border-[#f1d8a5] text-[#805d1b]"
+          : "bg-[#fff2f2] border-[#efc5c5] text-[#a33c3c]"
       }`}
     >
       <span
