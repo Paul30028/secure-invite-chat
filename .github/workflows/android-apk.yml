@@ -1,0 +1,62 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/secure-foundation
+    paths:
+      - "src/**"
+      - "public/**"
+      - "android/**"
+      - "capacitor.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Build web client
+        run: npm run build
+
+      - name: Create or sync Android project
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: secure-invite-chat-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
