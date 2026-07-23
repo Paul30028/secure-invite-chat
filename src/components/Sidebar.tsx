@@ -63,7 +63,18 @@ export function Sidebar({
         </div>
       )}
 
-      <footer className="flex gap-2 border-t border-[#e7e7e7] p-3">
+      <footer className="grid grid-cols-3 border-t border-[#e7e7e7] bg-white px-2 pt-2 sm:hidden" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
+        <button type="button" className="flex flex-col items-center gap-0.5 py-1.5 text-[11px] text-[#07c160]" onClick={() => activeGroupId && onSelect(activeGroupId)}>
+          <span className="text-lg leading-none">◉</span>聊天
+        </button>
+        <button type="button" className="flex flex-col items-center gap-0.5 py-1.5 text-[11px] text-[#555]" onClick={onCreate}>
+          <span className="text-lg leading-none">＋</span>新建
+        </button>
+        <button type="button" className="flex flex-col items-center gap-0.5 py-1.5 text-[11px] text-[#555]" onClick={onJoin}>
+          <span className="text-lg leading-none">⌁</span>加入
+        </button>
+      </footer>
+      <footer className="hidden gap-2 border-t border-[#e7e7e7] p-3 sm:flex">
         <button type="button" className="flex-1 rounded-lg bg-[#07c160] py-2.5 text-sm font-medium text-white" onClick={onCreate}>新建聊天</button>
         <button type="button" className="flex-1 rounded-lg bg-white py-2.5 text-sm text-[#444] ring-1 ring-[#dedede]" onClick={onJoin}>加入聊天</button>
       </footer>
