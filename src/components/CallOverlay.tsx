@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { CallState } from "../hooks/useCallEngine";
 
 export function CallOverlay({
-  call, localStream, remoteStream, onAccept, onReject, onEnd, onToggleAudio, onToggleVideo, onSwitchCamera, audioMuted, videoPaused,
+  call, localStream, remoteStream, onAccept, onReject, onEnd, onToggleAudio, onToggleVideo, onSwitchCamera = () => {}, audioMuted = false, videoPaused = false,
 }: {
   call: CallState;
   localStream: MediaStream | null;
@@ -12,9 +12,9 @@ export function CallOverlay({
   onEnd: () => void;
   onToggleAudio: () => void;
   onToggleVideo: () => void;
-  onSwitchCamera: () => void;
-  audioMuted: boolean;
-  videoPaused: boolean;
+  onSwitchCamera?: () => void;
+  audioMuted?: boolean;
+  videoPaused?: boolean;
 }) {
   const remoteVideo = useRef<HTMLVideoElement>(null);
   const localVideo = useRef<HTMLVideoElement>(null);
