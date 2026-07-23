@@ -31,20 +31,32 @@ export function useCallEngine(deviceId: string) {
   const [call, setCall] = useState<CallState | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [audioMuted, setAudioMuted] = useState(false);
+  const [videoPaused, setVideoPaused] = useState(false);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const activeRef = useRef<ActiveCall | null>(null);
   const pendingRef = useRef<CallSignal | null>(null);
   const queuedCandidates = useRef<RTCIceCandidateInit[]>([]);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const facingModeRef = useRef<"user" | "environment">("user");
+
+  const clearCallTimeout = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  }, []);
 
   const stopMedia = useCallback(() => {
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
     localStreamRef.current = null;
     setLocalStream(null);
     setRemoteStream(null);
+    setAudioMuted(false);
+    setVideoPaused(false);
   }, []);
 
   const finish = useCallback((notify = false, signal: "hangup" | "reject" = "hangup") => {
+    clearCallTimeout();
     const active = activeRef.current;
     if (notify && active) {
       wsClient.sendCallSignal({
@@ -64,7 +76,7 @@ export function useCallEngine(deviceId: string) {
     queuedCandidates.current = [];
     stopMedia();
     setCall(null);
-  }, [deviceId, stopMedia]);
+  }, [clearCallTimeout, deviceId, stopMedia]);
 
   const createPeerConnection = useCallback((active: ActiveCall, stream: MediaStream) => {
     const pc = new RTCPeerConnection(rtcConfig);
@@ -96,7 +108,7 @@ export function useCallEngine(deviceId: string) {
       }
     };
     return pc;
-  }, [deviceId, finish]);
+  }, [clearCallTimeout, deviceId, finish]);
 
   const capture = useCallback(async (mode: "audio" | "video") => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -143,6 +155,11 @@ export function useCallEngine(deviceId: string) {
         senderName: localName,
         sdp: offer,
       });
+      timeoutRef.current = setTimeout(() => {
+        if (activeRef.current?.callId !== active.callId) return;
+        finish(true);
+        setCall({ status: "error", mode, peer, error: "对方暂未接听，请稍后再试。" });
+      }, 45_000);
     } catch (error) {
       finish(false);
       setCall({
@@ -201,16 +218,36 @@ export function useCallEngine(deviceId: string) {
   const endCall = useCallback(() => finish(true), [finish]);
 
   const toggleAudio = useCallback(() => {
-    localStream?.getAudioTracks().forEach((track) => {
-      track.enabled = !track.enabled;
-    });
-  }, [localStream]);
+    const next = !audioMuted;
+    localStreamRef.current?.getAudioTracks().forEach((track) => { track.enabled = !next; });
+    setAudioMuted(next);
+  }, [audioMuted]);
 
   const toggleVideo = useCallback(() => {
-    localStream?.getVideoTracks().forEach((track) => {
-      track.enabled = !track.enabled;
-    });
-  }, [localStream]);
+    const next = !videoPaused;
+    localStreamRef.current?.getVideoTracks().forEach((track) => { track.enabled = !next; });
+    setVideoPaused(next);
+  }, [videoPaused]);
+
+  const switchCamera = useCallback(async () => {
+    if (activeRef.current?.mode !== "video" || !navigator.mediaDevices?.getUserMedia) return;
+    const current = localStreamRef.current;
+    if (!current) return;
+    const nextFacing = facingModeRef.current === "user" ? "environment" : "user";
+    try {
+      const camera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: nextFacing }, audio: false });
+      const newTrack = camera.getVideoTracks()[0];
+      if (!newTrack) return;
+      const sender = pcRef.current?.getSenders().find((item) => item.track?.kind === "video");
+      await sender?.replaceTrack(newTrack);
+      current.getVideoTracks().forEach((track) => { current.removeTrack(track); track.stop(); });
+      current.addTrack(newTrack);
+      facingModeRef.current = nextFacing;
+      setLocalStream(new MediaStream(current.getTracks()));
+    } catch {
+      setCall((currentCall) => currentCall ? { ...currentCall, error: "无法切换摄像头。" } : currentCall);
+    }
+  }, []);
 
   useEffect(() => {
     const off = wsClient.on("call_signal", async (signal) => {
@@ -240,6 +277,7 @@ export function useCallEngine(deviceId: string) {
       if (!active || signal.call_id !== active.callId || signal.from_device_id !== active.peer.deviceId) return;
 
       if (signal.signal === "answer" && signal.sdp && pcRef.current) {
+        clearCallTimeout();
         await pcRef.current.setRemoteDescription(signal.sdp);
         return;
       }
@@ -271,5 +309,8 @@ export function useCallEngine(deviceId: string) {
     endCall,
     toggleAudio,
     toggleVideo,
+    switchCamera,
+    audioMuted,
+    videoPaused,
   };
 }
