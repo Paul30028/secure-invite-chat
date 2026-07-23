@@ -137,7 +137,7 @@ function App() {
               if (!localMode) refreshMembers(activeGroup.groupId);
               setShowMembers(true);
             }}
-            callAvailable={!localMode && callPeers.length > 0}
+            callAvailable={!localMode}
             onStartAudioCall={() => setCallPickerMode("audio")}
             onStartVideoCall={() => setCallPickerMode("video")}
             memberCount={activeMembers.length || undefined}
