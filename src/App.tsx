@@ -13,6 +13,8 @@ import { AdminHome } from "./components/AdminHome";
 import { MembersPanel } from "./components/MembersPanel";
 import { MatrixDemoModal } from "./components/MatrixDemoModal";
 import { PublicNoticeModal } from "./components/PublicNoticeModal";
+import { CallOverlay } from "./components/CallOverlay";
+import { useCallEngine } from "./hooks/useCallEngine";
 
 function App() {
   const {
@@ -44,6 +46,8 @@ function App() {
     localMode,
   } = useChatEngine();
 
+  const callEngine = useCallEngine(deviceId);
+
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -57,6 +61,7 @@ function App() {
   const mobileShowSidebar = !activeGroupId;
   const showOnboarding = groups.length === 0 && !activeGroup;
   const activeMembers = activeGroup ? membersByGroup[activeGroup.groupId] || [] : [];
+  const callPeer = activeMembers.find((member) => member.deviceId !== deviceId && member.online) || null;
 
   // 创建群后弹出邀请码（真机验收：管理端发码）
   const prevAdminIds = useRef<Set<string>>(new Set());
@@ -130,6 +135,13 @@ function App() {
               if (!localMode) refreshMembers(activeGroup.groupId);
               setShowMembers(true);
             }}
+            callAvailable={!localMode && !!callPeer}
+            onStartAudioCall={() => {
+              if (callPeer) void callEngine.startCall(activeGroup.groupId, { deviceId: callPeer.deviceId, displayName: callPeer.displayName }, "audio", activeGroup.displayName);
+            }}
+            onStartVideoCall={() => {
+              if (callPeer) void callEngine.startCall(activeGroup.groupId, { deviceId: callPeer.deviceId, displayName: callPeer.displayName }, "video", activeGroup.displayName);
+            }}
             memberCount={activeMembers.length || undefined}
             onLeave={() => leaveGroup(activeGroup.groupId)}
             onBack={() => setActiveGroupId(null)}
@@ -192,6 +204,19 @@ function App() {
         <PublicNoticeModal
           onClose={() => setShowPublicNotices(false)}
           onEnterChat={() => void openDemoChat()}
+        />
+      )}
+
+      {callEngine.call && (
+        <CallOverlay
+          call={callEngine.call}
+          localStream={callEngine.localStream}
+          remoteStream={callEngine.remoteStream}
+          onAccept={() => void callEngine.acceptCall()}
+          onReject={callEngine.rejectCall}
+          onEnd={callEngine.endCall}
+          onToggleAudio={callEngine.toggleAudio}
+          onToggleVideo={callEngine.toggleVideo}
         />
       )}
 
