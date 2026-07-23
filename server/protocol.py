@@ -26,6 +26,9 @@ STRING_LIMITS: dict[str, int] = {
     "msg_type": 32,
     "sender_name": 96,
     "before_id": 128,
+    "call_id": 128,
+    "signal": 16,
+    "mode": 16,
 }
 
 
