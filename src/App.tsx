@@ -228,6 +228,9 @@ function App() {
           onEnd={callEngine.endCall}
           onToggleAudio={callEngine.toggleAudio}
           onToggleVideo={callEngine.toggleVideo}
+          onSwitchCamera={() => void callEngine.switchCamera()}
+          audioMuted={callEngine.audioMuted}
+          videoPaused={callEngine.videoPaused}
         />
       )}
 
