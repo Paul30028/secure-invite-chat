@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { CallState } from "../hooks/useCallEngine";
 
 export function CallOverlay({
-  call, localStream, remoteStream, onAccept, onReject, onEnd, onToggleAudio, onToggleVideo,
+  call, localStream, remoteStream, onAccept, onReject, onEnd, onToggleAudio, onToggleVideo, onSwitchCamera, audioMuted, videoPaused,
 }: {
   call: CallState;
   localStream: MediaStream | null;
@@ -12,6 +12,9 @@ export function CallOverlay({
   onEnd: () => void;
   onToggleAudio: () => void;
   onToggleVideo: () => void;
+  onSwitchCamera: () => void;
+  audioMuted: boolean;
+  videoPaused: boolean;
 }) {
   const remoteVideo = useRef<HTMLVideoElement>(null);
   const localVideo = useRef<HTMLVideoElement>(null);
@@ -55,7 +58,7 @@ export function CallOverlay({
         <video ref={localVideo} autoPlay muted playsInline className="absolute right-4 top-24 z-20 h-36 w-24 rounded-xl bg-[#333] object-cover shadow-lg" />
       )}
 
-      <div className="relative z-10 mt-auto grid grid-cols-3 gap-5 bg-gradient-to-t from-black/70 to-transparent px-8 pb-10 pt-12">
+      <div className="relative z-10 mt-auto grid grid-cols-4 gap-4 bg-gradient-to-t from-black/70 to-transparent px-8 pb-10 pt-12">
         {incoming ? (
           <>
             <button type="button" onClick={onReject} className="col-span-1 flex flex-col items-center gap-2 text-sm">
@@ -72,13 +75,16 @@ export function CallOverlay({
         ) : (
           <>
             <button type="button" onClick={onToggleAudio} className="flex flex-col items-center gap-2 text-xs">
-              <span className="grid h-12 w-12 place-items-center rounded-full bg-white/20 text-xl">♩</span>麦克风
+              <span className={"grid h-12 w-12 place-items-center rounded-full text-xl " + (audioMuted ? "bg-[#fa5151]" : "bg-white/20")}>{audioMuted ? "×" : "♩"}</span>{audioMuted ? "已静音" : "麦克风"}
             </button>
             <button type="button" onClick={onEnd} className="flex flex-col items-center gap-2 text-xs">
               <span className="grid h-14 w-14 place-items-center rounded-full bg-[#fa5151] text-2xl">⌕</span>挂断
             </button>
             <button type="button" onClick={onToggleVideo} disabled={!isVideo} className="flex flex-col items-center gap-2 text-xs disabled:opacity-30">
-              <span className="grid h-12 w-12 place-items-center rounded-full bg-white/20 text-xl">▣</span>摄像头
+              <span className={"grid h-12 w-12 place-items-center rounded-full text-xl " + (videoPaused ? "bg-[#fa5151]" : "bg-white/20")}>{videoPaused ? "×" : "▣"}</span>{videoPaused ? "已关闭" : "摄像头"}
+            </button>
+            <button type="button" onClick={onSwitchCamera} disabled={!isVideo} className="flex flex-col items-center gap-2 text-xs disabled:opacity-30">
+              <span className="grid h-12 w-12 place-items-center rounded-full bg-white/20 text-xl">↻</span>翻转
             </button>
           </>
         )}
