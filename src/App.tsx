@@ -17,6 +17,7 @@ import { CallOverlay } from "./components/CallOverlay";
 import { useCallEngine } from "./hooks/useCallEngine";
 import { CallPeerPicker } from "./components/CallPeerPicker";
 import { AppUpdatePrompt } from "./components/AppUpdatePrompt";
+import { NoticeAdminModal } from "./components/NoticeAdminModal";
 import { checkForAppUpdate, type AppUpdate } from "./lib/appUpdate";
 
 function App() {
@@ -61,6 +62,7 @@ function App() {
   // 公开公告是应用首页，用户无需先进入设置。
   const [showPublicNotices, setShowPublicNotices] = useState(true);
   const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
+  const [showNoticeAdmin, setShowNoticeAdmin] = useState(false);
 
   const activeGroup = groups.find((g) => g.groupId === activeGroupId) || null;
   const mobileShowSidebar = !activeGroupId;
@@ -216,6 +218,10 @@ function App() {
         <PublicNoticeModal
           onClose={() => setShowPublicNotices(false)}
           onEnterChat={() => void openDemoChat()}
+          onOpenAdmin={() => {
+            setShowPublicNotices(false);
+            setShowNoticeAdmin(true);
+          }}
         />
       )}
 
@@ -247,6 +253,8 @@ function App() {
           videoPaused={callEngine.videoPaused}
         />
       )}
+
+      {showNoticeAdmin && <NoticeAdminModal onClose={() => setShowNoticeAdmin(false)} />}
 
       {appUpdate && (
         <AppUpdatePrompt update={appUpdate} onClose={() => setAppUpdate(null)} />
