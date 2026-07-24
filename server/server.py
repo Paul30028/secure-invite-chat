@@ -18,8 +18,12 @@ server.py - 邀群密聊 WebSocket 后端（中国区直连）
 """
 
 import asyncio
+import hmac
 import json
 import logging
+import os
+from datetime import datetime, timezone
+from pathlib import Path
 
 import websockets
 from websockets.asyncio.server import serve
@@ -179,6 +183,75 @@ async def send_to_device(group_id: str, device_id: str, payload: dict):
 
 async def send_error(ws, message: str):
     await ws.send(json.dumps({"type": "error", "message": message}))
+
+
+async def send_error(ws, message: str):
+    await ws.send(json.dumps({"type": "error", "message": message}))
+
+
+NOTICE_CATEGORIES = ("devotion", "hymn", "verse")
+NOTICE_FILE = Path(__file__).resolve().parent / "public" / "daily-notices.json"
+
+
+def normalize_notice_entry(value: object) -> dict:
+    if not isinstance(value, dict):
+        raise ValueError("invalid_notice_payload")
+
+    limits = {"title": 160, "summary": 400, "body": 6000, "reference": 400}
+    entry: dict[str, str] = {}
+    for key, limit in limits.items():
+        raw = value.get(key)
+        if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > limit:
+            raise ValueError("invalid_notice_payload")
+        entry[key] = raw.strip()
+
+    for key in ("audio_url", "audio_title"):
+        raw = value.get(key, "")
+        if raw is None:
+            raw = ""
+        if not isinstance(raw, str) or len(raw.strip()) > 2048:
+            raise ValueError("invalid_notice_payload")
+        cleaned = raw.strip()
+        if key == "audio_url" and cleaned and not cleaned.startswith("https://"):
+            raise ValueError("invalid_notice_audio_url")
+        if cleaned:
+            entry[key] = cleaned
+    return entry
+
+
+def publish_public_notices(notice_date: object, payload: object) -> None:
+    if not isinstance(notice_date, str):
+        raise ValueError("invalid_notice_date")
+    try:
+        datetime.strptime(notice_date, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError("invalid_notice_date") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("invalid_notice_payload")
+
+    entries = {
+        category: normalize_notice_entry(payload.get(category))
+        for category in NOTICE_CATEGORIES
+    }
+    try:
+        current = json.loads(NOTICE_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("notice_store_unavailable") from exc
+    if not isinstance(current, dict):
+        raise RuntimeError("notice_store_unavailable")
+
+    for category, entry in entries.items():
+        existing = current.get(category)
+        items = [item for item in existing if isinstance(item, dict)] if isinstance(existing, list) else []
+        current[category] = [item for item in items if item.get("date") != notice_date] + [
+            {"date": notice_date, **entry}
+        ]
+
+    current["updated_at"] = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    NOTICE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = NOTICE_FILE.with_name(f".{NOTICE_FILE.name}.tmp")
+    temp_path.write_text(json.dumps(current, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(temp_path, NOTICE_FILE)
 
 
 async def handle_connection(ws):
@@ -425,6 +498,27 @@ async def handle_connection(ws):
                         **({"candidate": candidate} if isinstance(candidate, dict) else {}),
                     },
                 )
+
+            elif mtype == "publish_public_notices":
+                import config as cfg
+
+                token = msg.get("notice_admin_token")
+                if not cfg.NOTICE_ADMIN_TOKEN:
+                    await send_error(ws, "notice_publishing_disabled")
+                    continue
+                if not isinstance(token, str) or not hmac.compare_digest(token, cfg.NOTICE_ADMIN_TOKEN):
+                    await send_error(ws, "notice_not_authorized")
+                    continue
+                try:
+                    publish_public_notices(msg.get("date"), msg.get("notices"))
+                except ValueError as exc:
+                    await send_error(ws, str(exc))
+                    continue
+                except RuntimeError as exc:
+                    await send_error(ws, str(exc))
+                    continue
+                await ws.send(json.dumps({"type": "public_notices_published", "date": msg.get("date")}))
+                log.info("管理员已发布 %s 的公开公告", msg.get("date"))
 
             elif mtype == "send_message":
                 group_id = msg.get("group_id")
