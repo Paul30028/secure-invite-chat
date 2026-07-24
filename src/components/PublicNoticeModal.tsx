@@ -95,6 +95,11 @@ export function PublicNoticeModal({
     <main className="fixed inset-0 z-[55] overflow-y-auto bg-[#f7f8fa] px-5 py-10 text-[#1f2329]">
       <div className="mx-auto flex min-h-full w-full max-w-md flex-col">
         <header className="mb-8">
+          <img
+            src="/app-logo.png"
+            alt="邀群密聊标识"
+            className="mb-4 h-16 w-16 rounded-2xl object-cover shadow-sm"
+          />
           <p className="text-sm font-medium text-[#07c160]">SECURE INVITE CHAT</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">今日公告</h1>
           <p className="mt-2 text-sm leading-relaxed text-[#7a7f87]">

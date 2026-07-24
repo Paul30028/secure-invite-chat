@@ -47,9 +47,11 @@ export function Onboarding({
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#0d1117] overflow-y-auto">
       <div className="px-5 pt-10 pb-4">
-        <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-2xl mb-4">
-          💬
-        </div>
+        <img
+          src="/app-logo.png"
+          alt="邀群密聊标识"
+          className="mb-4 h-16 w-16 rounded-2xl object-cover shadow-lg"
+        />
         <h1 className="text-xl font-bold text-white mb-1">{APP_NAME}</h1>
         <p className="text-sm text-slate-400 leading-relaxed">
           先跑通：手机与电脑<strong className="text-slate-200">同一 Wi‑Fi</strong>
