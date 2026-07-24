@@ -79,6 +79,7 @@ function Editor({
 
 export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
   const [date, setDate] = useState(() => builtInDailyNotices().date);
+  const [publishMode, setPublishMode] = useState<"test" | "daily">("test");
   const [password, setPassword] = useState("");
   const [draft, setDraft] = useState<NoticeDraft>(loadDraft);
   const [status, setStatus] = useState("");
@@ -106,7 +107,7 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
       if (publishTimerRef.current !== null) window.clearTimeout(publishTimerRef.current);
       publishTimerRef.current = null;
       setIsPublishing(false);
-      setStatus(`${event.date} 已发布，公告页会在下次刷新时更新。`);
+      setStatus(`${event.date} 已${event.notice_mode === "test" ? "测试发布" : "每日发布"}，返回公告页后点“刷新公告”即可查看。`);
       try {
         localStorage.removeItem(DRAFT_KEY);
       } catch {
@@ -151,7 +152,7 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
     }
     setIsPublishing(true);
     setStatus("正在提交，请稍候…");
-    wsClient.publishPublicNotices({ adminPassword: password.trim(), date, notices: draft });
+    wsClient.publishPublicNotices({ adminPassword: password.trim(), date, mode: publishMode, notices: draft });
     publishTimerRef.current = window.setTimeout(() => {
       setIsPublishing(false);
       setStatus("服务器未在 15 秒内回应。请检查 App 是否已连接 wss://secureinchat.com，以及服务器服务是否正常。");
@@ -174,6 +175,13 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
         <label className="mt-5 block text-xs text-slate-400">发布日期</label>
         <input type="date" className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b0f14] px-3 py-2.5 text-sm outline-none focus:border-emerald-500" value={date} onChange={(event) => setDate(event.target.value)} />
 
+        <label className="mt-4 block text-xs text-slate-400">发布方式</label>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setPublishMode("test")} className={`rounded-lg px-3 py-2 text-sm ${publishMode === "test" ? "bg-amber-500 text-white" : "bg-slate-800 text-slate-300"}`}>测试发布</button>
+          <button type="button" onClick={() => setPublishMode("daily")} className={`rounded-lg px-3 py-2 text-sm ${publishMode === "daily" ? "bg-emerald-600 text-white" : "bg-slate-800 text-slate-300"}`}>每日模式</button>
+        </div>
+        <p className="mt-2 text-[11px] leading-5 text-slate-400">{publishMode === "test" ? "测试内容会立即写入今天的公告；确认无误后再选择“每日模式”。" : "每日模式会按上海日期显示当天内容；可提前为未来日期分别发布。"}</p>
+
         <div className="mt-4 space-y-3">
           <Editor label="📖 每日圣经灵修" value={draft.devotion} onChange={(key, value) => update("devotion", key, value)} />
           <Editor label="🎵 赞美诗歌" value={draft.hymn} onChange={(key, value) => update("hymn", key, value)} hymn />
@@ -185,7 +193,7 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
         {status && <p className="mt-3 text-sm leading-5 text-amber-200">{status}</p>}
 
         <button type="button" disabled={isPublishing} className="mt-4 w-full rounded-xl bg-[#07c160] py-3.5 text-sm font-semibold text-white disabled:opacity-50" onClick={publish}>
-          {isPublishing ? "提交中…" : "一键提交今日公告"}
+          {isPublishing ? "提交中…" : publishMode === "test" ? "测试发布并立即查看" : "发布每日公告"}
         </button>
       </main>
     </div>
