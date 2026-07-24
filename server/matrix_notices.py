@@ -12,7 +12,7 @@ Required environment variables:
   SIC_NOTICE_VERSE_ROOM_ID=!...
 
 Run once (recommended from Task Scheduler / cron):
-  python server/matrix_notices.py --content server/daily-notices.json
+  python server/matrix_notices.py --content server/public/daily-notices.json
 
 Or keep the process alive and publish once at the chosen local server time:
   python server/matrix_notices.py --daemon --time 07:00
@@ -135,8 +135,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Publish daily Matrix notices")
     parser.add_argument(
         "--content",
-        default="server/daily-notices.json",
-        help="JSON source file (default: server/daily-notices.json)",
+        default="server/public/daily-notices.json",
+        help="JSON source file (default: server/public/daily-notices.json)",
     )
     parser.add_argument("--date", default="", help="ISO date; defaults to today")
     parser.add_argument("--daemon", action="store_true", help="Run every day at --time")
