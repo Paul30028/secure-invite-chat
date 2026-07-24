@@ -20,11 +20,14 @@ server.py - 邀群密聊 WebSocket 后端（中国区直连）
 import asyncio
 import json
 import logging
+import secrets as secrets_mod
 
 import websockets
 from websockets.asyncio.server import serve
 
+import config as cfg
 import db
+from ratelimit import TokenBucket
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("server")
@@ -32,6 +35,24 @@ log = logging.getLogger("server")
 # group_id -> set of (websocket, device_id)
 GROUP_CONNECTIONS: dict[str, set] = {}
 CONNECTION_GROUPS: dict[object, set] = {}
+
+# 消息发送限流：按 "group_id:device_id" 计数
+message_bucket = TokenBucket(
+    capacity=cfg.RATE_LIMIT_MSG_CAPACITY,
+    refill_per_sec=cfg.RATE_LIMIT_MSG_REFILL_PER_SEC,
+)
+# 建群/加群/踢人等低频操作限流：按连接对象计数（同一个ws连接内的操作频率）
+action_bucket = TokenBucket(
+    capacity=cfg.RATE_LIMIT_ACTION_CAPACITY,
+    refill_per_sec=cfg.RATE_LIMIT_ACTION_REFILL_PER_SEC,
+)
+
+
+def constant_time_eq(a: str | None, b: str | None) -> bool:
+    """恒定时间比较，防止管理员令牌被计时侧信道攻击猜出"""
+    if a is None or b is None:
+        return False
+    return secrets_mod.compare_digest(a, b)
 
 
 async def register(group_id: str, ws, device_id: str):
@@ -144,6 +165,9 @@ async def handle_connection(ws):
             mtype = msg.get("type")
 
             if mtype == "create_group":
+                if not action_bucket.allow(f"conn:{id(ws)}"):
+                    await send_error(ws, "rate_limited")
+                    continue
                 name = (msg.get("name") or "").strip()
                 device_id = msg.get("device_id")
                 display_name = (msg.get("display_name") or "").strip() or "Admin"
@@ -160,6 +184,9 @@ async def handle_connection(ws):
                 log.info(f"群组已创建: {result['group_id']} name={name}")
 
             elif mtype == "join_group":
+                if not action_bucket.allow(f"conn:{id(ws)}"):
+                    await send_error(ws, "rate_limited")
+                    continue
                 invite_code = msg.get("invite_code")
                 device_id = msg.get("device_id")
                 display_name = (msg.get("display_name") or "").strip() or "成员"
@@ -225,11 +252,14 @@ async def handle_connection(ws):
                 await ws.send(json.dumps(members_payload(group_id)))
 
             elif mtype == "kick_member":
+                if not action_bucket.allow(f"conn:{id(ws)}"):
+                    await send_error(ws, "rate_limited")
+                    continue
                 group_id = msg.get("group_id")
                 admin_token = msg.get("admin_token")
                 target = msg.get("target_device_id")
                 group = db.find_group_by_id(group_id) if group_id else None
-                if not group or group["admin_token"] != admin_token:
+                if not group or not constant_time_eq(group["admin_token"], admin_token):
                     await send_error(ws, "not_authorized")
                     continue
                 if not target:
@@ -274,6 +304,9 @@ async def handle_connection(ws):
                 if not db.is_member(group_id, device_id):
                     await send_error(ws, "not_a_member")
                     continue
+                if not message_bucket.allow(f"{group_id}:{device_id}"):
+                    await send_error(ws, "rate_limited")
+                    continue
 
                 saved = db.save_message(
                     group_id, device_id, sender_name, msg_type, ciphertext, iv
@@ -284,7 +317,7 @@ async def handle_connection(ws):
                 group_id = msg.get("group_id")
                 admin_token = msg.get("admin_token")
                 group = db.find_group_by_id(group_id) if group_id else None
-                if not group or group["admin_token"] != admin_token:
+                if not group or not constant_time_eq(group["admin_token"], admin_token):
                     await send_error(ws, "not_authorized")
                     continue
                 new_code = db.regenerate_invite_code(group_id)

@@ -53,8 +53,14 @@ export const DEFAULT_INVITE_WS_URL: string = (() => {
 })();
 
 export const FEATURES = {
-  /** 本地单机调试（不连服务器）— 真机互通时请关闭 */
-  localDebug: true,
+  /**
+   * 本地单机调试（不连服务器）— 真机互通/生产环境务必保持关闭
+   * 仅在 `vite dev` 开发模式下默认开启，`vite build` 生产构建默认关闭，
+   * 防止生产包里残留"本地调试入口"给最终用户误用。
+   */
+  localDebug: Boolean(
+    (import.meta as unknown as { env?: Record<string, unknown> }).env?.DEV
+  ),
   /** 邀请码内嵌服务器：同 Wi‑Fi 时可选 */
   inviteEmbedServer: false,
   /** 公网：最后再做 */
