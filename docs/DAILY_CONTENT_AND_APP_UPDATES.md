@@ -100,3 +100,39 @@ https://secureinchat.com/app-update.json
 3. 用手机重新打开 App；它会自动检测并显示更新提示。
 
 每次 Android 构建使用的调试签名可能不同。若系统拒绝覆盖安装，请卸载旧测试版后再安装；本地群组和缓存消息会随卸载清除。
+
+
+## 2.1 App 内的管理员专区
+
+新版 App 的「今日公告」首页底部有 **管理员专区**。管理员可本地编辑灵修、诗歌、金句并点击“一键提交今日公告”。提交走现有 `wss://secureinchat.com` WebSocket，不会把管理员令牌存入 App。
+
+先在服务器生成一个随机令牌：
+
+```bash
+openssl rand -hex 32
+```
+
+将输出的令牌写入聊天服务的 systemd 覆盖配置：
+
+```bash
+systemctl edit secure-chat
+```
+
+粘贴（把 `替换为刚生成的随机值` 换成真实令牌）：
+
+```ini
+[Service]
+Environment="SIC_NOTICE_ADMIN_TOKEN=替换为刚生成的随机值"
+```
+
+然后重启服务：
+
+```bash
+systemctl daemon-reload
+systemctl restart secure-chat
+systemctl status secure-chat --no-pager
+```
+
+在 App 的管理员专区输入同一令牌即可发布。令牌为空时，服务器会拒绝全部公告发布请求。
+
+> 令牌等同于公告后台密码；不要发到群里、截图或提交到 Git。
