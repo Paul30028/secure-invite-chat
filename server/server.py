@@ -219,7 +219,9 @@ def normalize_notice_entry(value: object) -> dict:
     return entry
 
 
-def publish_public_notices(notice_date: object, payload: object) -> None:
+def publish_public_notices(
+    notice_date: object, payload: object, notice_mode: object = "daily"
+) -> None:
     if not isinstance(notice_date, str):
         raise ValueError("invalid_notice_date")
     try:
@@ -228,6 +230,8 @@ def publish_public_notices(notice_date: object, payload: object) -> None:
         raise ValueError("invalid_notice_date") from exc
     if not isinstance(payload, dict):
         raise ValueError("invalid_notice_payload")
+    if notice_mode not in {"test", "daily"}:
+        raise ValueError("invalid_notice_mode")
 
     entries = {
         category: normalize_notice_entry(payload.get(category))
@@ -247,6 +251,7 @@ def publish_public_notices(notice_date: object, payload: object) -> None:
             {"date": notice_date, **entry}
         ]
 
+    current["mode"] = notice_mode
     current["updated_at"] = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     NOTICE_FILE.parent.mkdir(parents=True, exist_ok=True)
     temp_path = NOTICE_FILE.with_name(f".{NOTICE_FILE.name}.tmp")
@@ -513,14 +518,20 @@ async def handle_connection(ws):
                     await send_error(ws, "notice_not_authorized")
                     continue
                 try:
-                    publish_public_notices(msg.get("date"), msg.get("notices"))
+                    publish_public_notices(
+                        msg.get("date"), msg.get("notices"), msg.get("notice_mode", "daily")
+                    )
                 except ValueError as exc:
                     await send_error(ws, str(exc))
                     continue
                 except RuntimeError as exc:
                     await send_error(ws, str(exc))
                     continue
-                await ws.send(json.dumps({"type": "public_notices_published", "date": msg.get("date")}))
+                await ws.send(json.dumps({
+                    "type": "public_notices_published",
+                    "date": msg.get("date"),
+                    "notice_mode": msg.get("notice_mode", "daily"),
+                }))
                 log.info("管理员已发布 %s 的公开公告", msg.get("date"))
 
             elif mtype == "send_message":
