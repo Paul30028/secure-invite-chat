@@ -13,8 +13,17 @@
 
 ```caddyfile
 secureinchat.com {
-    @publicContent path /notices.json /app-update.json /downloads/*
-    handle @publicContent {
+    # App 请求 /notices.json；实际文件名为 daily-notices.json。
+    @notices path /notices.json
+    handle @notices {
+        rewrite * /daily-notices.json
+        root * /opt/secure-invite-chat/server/public
+        header Access-Control-Allow-Origin "*"
+        file_server
+    }
+
+    @publicFiles path /app-update.json /downloads/*
+    handle @publicFiles {
         root * /opt/secure-invite-chat/server/public
         header Access-Control-Allow-Origin "*"
         file_server
@@ -106,10 +115,11 @@ https://secureinchat.com/app-update.json
 
 新版 App 的「今日公告」首页底部有 **管理员专区**。管理员可本地编辑灵修、诗歌、金句并点击“一键提交今日公告”。提交走现有 `wss://secureinchat.com` WebSocket，不会把管理员令牌存入 App。
 
-先在服务器生成一个随机令牌：
+在服务器设置公告管理员密码（建议使用 12 位以上英文和数字组合）：
 
 ```bash
-openssl rand -hex 32
+read -rsp "设置公告管理员密码：" SIC_PASSWORD
+echo
 ```
 
 将输出的令牌写入聊天服务的 systemd 覆盖配置：
@@ -122,7 +132,7 @@ systemctl edit secure-chat
 
 ```ini
 [Service]
-Environment="SIC_NOTICE_ADMIN_TOKEN=替换为刚生成的随机值"
+Environment="SIC_NOTICE_ADMIN_PASSWORD=替换为你设置的密码"
 ```
 
 然后重启服务：
@@ -133,6 +143,6 @@ systemctl restart secure-chat
 systemctl status secure-chat --no-pager
 ```
 
-在 App 的管理员专区输入同一令牌即可发布。令牌为空时，服务器会拒绝全部公告发布请求。
+在 App 的管理员专区输入同一密码即可发布。密码为空时，服务器会拒绝全部公告发布请求。
 
-> 令牌等同于公告后台密码；不要发到群里、截图或提交到 Git。
+> 密码等同于公告后台权限；不要发到群里、截图或提交到 Git。
