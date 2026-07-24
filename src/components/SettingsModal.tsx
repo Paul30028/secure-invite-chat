@@ -277,7 +277,7 @@ export function SettingsModal({
             className="px-4 py-2 text-sm rounded-lg text-slate-300"
             onClick={onClose}
           >
-            取消
+            ← 返回
           </button>
           <button
             type="button"
