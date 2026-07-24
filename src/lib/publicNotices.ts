@@ -1,4 +1,5 @@
 export type NoticeCategory = "devotion" | "hymn" | "verse";
+export type NoticeMode = "test" | "daily";
 
 export type DailyNotice = {
   id: string;
@@ -18,6 +19,7 @@ export type DailyNoticeBundle = {
   updatedAt?: string;
   notices: DailyNotice[];
   source: "remote" | "built_in";
+  mode: NoticeMode;
 };
 
 type NoticeEntry = {
@@ -31,6 +33,7 @@ type NoticeEntry = {
 };
 type NoticeFeed = {
   updated_at?: string;
+  mode?: unknown;
   devotion?: unknown;
   hymn?: unknown;
   verse?: unknown;
@@ -160,7 +163,13 @@ function bundleFrom(feed: NoticeFeed, source: DailyNoticeBundle["source"]): Dail
       return entry ? buildNotice(category, entry, date) : null;
     })
     .filter((notice): notice is DailyNotice => notice !== null);
-  return { date, updatedAt: feed.updated_at, notices, source };
+  return {
+    date,
+    updatedAt: feed.updated_at,
+    notices,
+    source,
+    mode: feed.mode === "test" ? "test" : "daily",
+  };
 }
 
 export function builtInDailyNotices(): DailyNoticeBundle {
