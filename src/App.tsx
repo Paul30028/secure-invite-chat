@@ -61,6 +61,7 @@ function App() {
   const [callPickerMode, setCallPickerMode] = useState<"audio" | "video" | null>(null);
   // 公开公告是应用首页，用户无需先进入设置。
   const [showPublicNotices, setShowPublicNotices] = useState(true);
+  const [publicNoticeOrigin, setPublicNoticeOrigin] = useState<"app" | "settings">("app");
   const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
   const [showNoticeAdmin, setShowNoticeAdmin] = useState(false);
 
@@ -201,6 +202,7 @@ function App() {
           onClose={() => setShowSettings(false)}
           onOpenPublicNotices={() => {
             setShowSettings(false);
+            setPublicNoticeOrigin("settings");
             setShowPublicNotices(true);
           }}
           onOpenMatrixDemo={() => {
@@ -213,10 +215,17 @@ function App() {
           }}
         />
       )}
-      {showMatrixDemo && <MatrixDemoModal onClose={() => setShowMatrixDemo(false)} />}
+      {showMatrixDemo && <MatrixDemoModal onClose={() => {
+        setShowMatrixDemo(false);
+        setShowSettings(true);
+      }} />}
       {showPublicNotices && (
         <PublicNoticeModal
           onClose={() => setShowPublicNotices(false)}
+          onBack={() => {
+            setShowPublicNotices(false);
+            if (publicNoticeOrigin === "settings") setShowSettings(true);
+          }}
           onEnterChat={() => void openDemoChat()}
           onOpenAdmin={() => {
             setShowPublicNotices(false);
@@ -254,7 +263,10 @@ function App() {
         />
       )}
 
-      {showNoticeAdmin && <NoticeAdminModal onClose={() => setShowNoticeAdmin(false)} />}
+      {showNoticeAdmin && <NoticeAdminModal onClose={() => {
+        setShowNoticeAdmin(false);
+        setShowPublicNotices(true);
+      }} />}
 
       {appUpdate && (
         <AppUpdatePrompt update={appUpdate} onClose={() => setAppUpdate(null)} />
