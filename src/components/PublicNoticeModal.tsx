@@ -1,36 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  builtInDailyNotices,
+  fetchDailyNotices,
+  type DailyNotice,
+  type DailyNoticeBundle,
+} from "../lib/publicNotices";
 
-type Notice = {
-  icon: string;
-  title: string;
-  summary: string;
-  tag: string;
-  detail: string;
-};
-
-const notices: Notice[] = [
-  {
-    icon: "📖",
-    title: "每日圣经灵修",
-    summary: "每日灵修主题、经文出处与祷告引导。",
-    tag: "每日更新",
-    detail: "今日灵修内容将在这里显示。后台发布后，可包含经文出处、默想问题和简短祷告引导。",
-  },
-  {
-    icon: "🎵",
-    title: "赞美诗歌",
-    summary: "当日授权诗歌与在线播放入口。",
-    tag: "聆听与赞美",
-    detail: "今日诗歌的标题、简介与播放按钮将在这里显示。仅接入拥有传播权的音频来源。",
-  },
-  {
-    icon: "✨",
-    title: "每日金句",
-    summary: "每日经文、出处与简短默想。",
-    tag: "每日更新",
-    detail: "今日金句的正文、出处和简短默想将在这里显示，由后台按日更新。",
-  },
-];
+function noticeTag(notice: DailyNotice): string {
+  if (notice.category === "hymn") return notice.audioUrl ? "立即播放" : "等待授权音频";
+  return "每日自动更新";
+}
 
 export function PublicNoticeModal({
   onClose,
@@ -39,7 +18,24 @@ export function PublicNoticeModal({
   onClose: () => void;
   onEnterChat: () => void;
 }) {
-  const [selected, setSelected] = useState<Notice | null>(null);
+  const [selected, setSelected] = useState<DailyNotice | null>(null);
+  const [bundle, setBundle] = useState<DailyNoticeBundle>(() => builtInDailyNotices());
+
+  useEffect(() => {
+    let alive = true;
+    const refresh = async () => {
+      const next = await fetchDailyNotices();
+      if (alive) setBundle(next);
+    };
+    void refresh();
+    // 跨过午夜或后台修改内容后，最多一小时自动刷新一次。
+    const timer = window.setInterval(() => void refresh(), 60 * 60 * 1000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const enterChat = () => {
     onEnterChat();
     onClose();
@@ -49,13 +45,44 @@ export function PublicNoticeModal({
     return (
       <main className="fixed inset-0 z-[55] overflow-y-auto bg-[#f7f8fa] px-5 py-10 text-[#1f2329]">
         <div className="mx-auto flex min-h-full w-full max-w-md flex-col">
-          <button type="button" className="mb-8 w-fit text-sm text-[#07c160]" onClick={() => setSelected(null)}>‹ 返回公告</button>
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#edf9f0] text-2xl">{selected.icon}</span>
-          <p className="mt-5 text-xs font-medium text-[#07c160]">{selected.tag}</p>
+          <button type="button" className="mb-8 w-fit text-sm text-[#07c160]" onClick={() => setSelected(null)}>
+            ‹ 返回公告
+          </button>
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#edf9f0] text-2xl">
+            {selected.icon}
+          </span>
+          <p className="mt-5 text-xs font-medium text-[#07c160]">{noticeTag(selected)} · {bundle.date}</p>
           <h1 className="mt-2 text-2xl font-bold">{selected.title}</h1>
-          <p className="mt-5 rounded-2xl bg-white p-5 text-sm leading-7 text-[#545860] shadow-[0_4px_18px_rgba(0,0,0,0.05)]">{selected.detail}</p>
+          <p className="mt-5 rounded-2xl bg-white p-5 text-sm leading-7 text-[#545860] shadow-[0_4px_18px_rgba(0,0,0,0.05)]">
+            {selected.body}
+          </p>
+          {selected.reference && (
+            <p className="mt-3 text-sm leading-6 text-[#70757d]">经文 / 来源：{selected.reference}</p>
+          )}
+          {selected.audioUrl ? (
+            <section className="mt-5 rounded-2xl bg-white p-4 shadow-[0_4px_18px_rgba(0,0,0,0.05)]">
+              <p className="mb-3 text-sm font-semibold">{selected.audioTitle || "授权音频播放"}</p>
+              <audio className="w-full" controls preload="none" src={selected.audioUrl}>
+                你的设备不支持音频播放，请使用下方链接。
+              </audio>
+              <a
+                href={selected.audioUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-block text-xs text-[#07c160]"
+              >
+                在浏览器打开音频链接
+              </a>
+            </section>
+          ) : selected.category === "hymn" ? (
+            <p className="mt-5 rounded-xl border border-[#d8eadb] bg-[#edf9f0] p-4 text-sm leading-6 text-[#4d7656]">
+              今日尚未发布授权音频。后台在 hymn 栏目填入 audio_url 后，此处会自动出现播放按钮。
+            </p>
+          ) : null}
           <div className="mt-auto pt-8">
-            <button type="button" className="w-full rounded-xl bg-[#07c160] py-3.5 text-base font-semibold text-white" onClick={enterChat}>进入聊天</button>
+            <button type="button" className="w-full rounded-xl bg-[#07c160] py-3.5 text-base font-semibold text-white" onClick={enterChat}>
+              进入聊天
+            </button>
           </div>
         </div>
       </main>
@@ -68,24 +95,45 @@ export function PublicNoticeModal({
         <header className="mb-8">
           <p className="text-sm font-medium text-[#07c160]">SECURE INVITE CHAT</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">今日公告</h1>
-          <p className="mt-2 text-sm leading-relaxed text-[#7a7f87]">点开栏目查看每日内容，再进入聊天。</p>
+          <p className="mt-2 text-sm leading-relaxed text-[#7a7f87]">
+            每日按上海日期自动更新；点开栏目查看内容，再进入聊天。
+          </p>
+          <p className="mt-2 text-xs text-[#9aa0a8]">
+            {bundle.source === "remote" ? "已读取后台公告" : "暂时使用 App 内置轮换内容"} · {bundle.date}
+          </p>
         </header>
         <section className="space-y-3">
-          {notices.map((notice) => (
-            <button key={notice.title} type="button" onClick={() => setSelected(notice)} className="w-full rounded-2xl bg-white p-4 text-left shadow-[0_4px_18px_rgba(0,0,0,0.05)] active:bg-[#f4fbf5]">
+          {bundle.notices.map((notice) => (
+            <button
+              key={notice.id}
+              type="button"
+              onClick={() => setSelected(notice)}
+              className="w-full rounded-2xl bg-white p-4 text-left shadow-[0_4px_18px_rgba(0,0,0,0.05)] active:bg-[#f4fbf5]"
+            >
               <div className="flex items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#edf9f0] text-xl">{notice.icon}</span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#edf9f0] text-xl">
+                  {notice.icon}
+                </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2"><h2 className="text-base font-semibold">{notice.title}</h2><span className="text-[#07c160]">›</span></div>
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold">{notice.title}</h2>
+                    <span className="text-[#07c160]">›</span>
+                  </div>
                   <p className="mt-1 text-sm leading-6 text-[#70757d]">{notice.summary}</p>
-                  <span className="mt-2 inline-block text-xs text-[#07c160]">{notice.tag}</span>
+                  <span className="mt-2 inline-block text-xs text-[#07c160]">{noticeTag(notice)}</span>
                 </div>
               </div>
             </button>
           ))}
         </section>
         <div className="mt-auto pt-8">
-          <button type="button" className="w-full rounded-xl bg-[#07c160] py-3.5 text-base font-semibold text-white shadow-sm active:bg-[#06ad58]" onClick={enterChat}>进入聊天</button>
+          <button
+            type="button"
+            className="w-full rounded-xl bg-[#07c160] py-3.5 text-base font-semibold text-white shadow-sm active:bg-[#06ad58]"
+            onClick={enterChat}
+          >
+            进入聊天
+          </button>
         </div>
       </div>
     </main>
