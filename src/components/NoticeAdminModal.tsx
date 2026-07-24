@@ -168,7 +168,7 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
             <h2 className="mt-1 text-xl font-bold">今日公告管理</h2>
             <p className="mt-1 text-xs leading-5 text-slate-400">草稿只保存在本机；管理员密码不会写入本地存储。</p>
           </div>
-          <button type="button" className="rounded-lg px-2 py-1 text-slate-400" onClick={onClose}>关闭</button>
+          <button type="button" className="rounded-lg px-2 py-1 text-slate-300 active:bg-slate-800" onClick={onClose}>← 返回</button>
         </div>
 
         <label className="mt-5 block text-xs text-slate-400">发布日期</label>
