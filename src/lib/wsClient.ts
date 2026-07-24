@@ -31,6 +31,15 @@ export type ServerMember = {
   online: boolean;
 };
 
+export type NoticePublishEntry = {
+  title: string;
+  summary: string;
+  body: string;
+  reference: string;
+  audio_url?: string;
+  audio_title?: string;
+};
+
 export type CallSignal = {
   group_id: string;
   call_id: string;
@@ -59,6 +68,7 @@ type ServerEventMap = {
   member_kicked: { group_id: string; target_device_id: string };
   kicked: { group_id: string; reason?: string };
   call_signal: CallSignal;
+  public_notices_published: { date: string };
   /** 服务器主动下发：手机同 Wi‑Fi 建议地址 */
   auth_challenge: { challenge: string };
   server_info: {
@@ -356,6 +366,19 @@ export class SicWsClient {
       sender_name: params.senderName,
       ...(params.sdp ? { sdp: params.sdp } : {}),
       ...(params.candidate ? { candidate: params.candidate } : {}),
+    });
+  }
+
+  publishPublicNotices(params: {
+    adminToken: string;
+    date: string;
+    notices: Record<"devotion" | "hymn" | "verse", NoticePublishEntry>;
+  }) {
+    this.send({
+      type: "publish_public_notices",
+      notice_admin_token: params.adminToken,
+      date: params.date,
+      notices: params.notices,
     });
   }
 
