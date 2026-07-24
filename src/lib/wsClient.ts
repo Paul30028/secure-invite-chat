@@ -68,7 +68,7 @@ type ServerEventMap = {
   member_kicked: { group_id: string; target_device_id: string };
   kicked: { group_id: string; reason?: string };
   call_signal: CallSignal;
-  public_notices_published: { date: string };
+  public_notices_published: { date: string; notice_mode?: "test" | "daily" };
   /** 服务器主动下发：手机同 Wi‑Fi 建议地址 */
   auth_challenge: { challenge: string };
   server_info: {
@@ -372,12 +372,14 @@ export class SicWsClient {
   publishPublicNotices(params: {
     adminPassword: string;
     date: string;
+    mode: "test" | "daily";
     notices: Record<"devotion" | "hymn" | "verse", NoticePublishEntry>;
   }) {
     this.send({
       type: "publish_public_notices",
       notice_admin_password: params.adminPassword,
       date: params.date,
+      notice_mode: params.mode,
       notices: params.notices,
     });
   }
