@@ -502,11 +502,14 @@ async def handle_connection(ws):
             elif mtype == "publish_public_notices":
                 import config as cfg
 
-                token = msg.get("notice_admin_token")
-                if not cfg.NOTICE_ADMIN_TOKEN:
+                # Password is the current public-admin credential.  The legacy
+                # token field is accepted temporarily so older APKs keep working.
+                password = msg.get("notice_admin_password") or msg.get("notice_admin_token")
+                expected_password = cfg.NOTICE_ADMIN_PASSWORD or cfg.NOTICE_ADMIN_TOKEN
+                if not expected_password:
                     await send_error(ws, "notice_publishing_disabled")
                     continue
-                if not isinstance(token, str) or not hmac.compare_digest(token, cfg.NOTICE_ADMIN_TOKEN):
+                if not isinstance(password, str) or not hmac.compare_digest(password, expected_password):
                     await send_error(ws, "notice_not_authorized")
                     continue
                 try:

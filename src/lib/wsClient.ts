@@ -370,13 +370,13 @@ export class SicWsClient {
   }
 
   publishPublicNotices(params: {
-    adminToken: string;
+    adminPassword: string;
     date: string;
     notices: Record<"devotion" | "hymn" | "verse", NoticePublishEntry>;
   }) {
     this.send({
       type: "publish_public_notices",
-      notice_admin_token: params.adminToken,
+      notice_admin_password: params.adminPassword,
       date: params.date,
       notices: params.notices,
     });

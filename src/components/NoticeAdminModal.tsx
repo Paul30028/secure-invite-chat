@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { builtInDailyNotices, fetchDailyNotices, type DailyNotice } from "../lib/publicNotices";
 import { wsClient, type NoticePublishEntry } from "../lib/wsClient";
 
@@ -79,9 +79,11 @@ function Editor({
 
 export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
   const [date, setDate] = useState(() => builtInDailyNotices().date);
-  const [token, setToken] = useState("");
+  const [password, setPassword] = useState("");
   const [draft, setDraft] = useState<NoticeDraft>(loadDraft);
   const [status, setStatus] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
+  const publishTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     try {
@@ -101,6 +103,9 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
     });
     const offDone = wsClient.on("public_notices_published", (event) => {
       if (!alive) return;
+      if (publishTimerRef.current !== null) window.clearTimeout(publishTimerRef.current);
+      publishTimerRef.current = null;
+      setIsPublishing(false);
       setStatus(`${event.date} 已发布，公告页会在下次刷新时更新。`);
       try {
         localStorage.removeItem(DRAFT_KEY);
@@ -110,9 +115,12 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
     });
     const offError = wsClient.on("error", (event) => {
       if (!alive || !event.message.startsWith("notice_") && !event.message.startsWith("invalid_notice")) return;
+      if (publishTimerRef.current !== null) window.clearTimeout(publishTimerRef.current);
+      publishTimerRef.current = null;
+      setIsPublishing(false);
       const messages: Record<string, string> = {
-        notice_publishing_disabled: "服务器尚未启用公告管理令牌。",
-        notice_not_authorized: "管理员令牌不正确。",
+        notice_publishing_disabled: "服务器尚未启用公告管理员密码。",
+        notice_not_authorized: "管理员密码不正确。",
         invalid_notice_date: "日期格式应为 YYYY-MM-DD。",
         invalid_notice_audio_url: "音频地址必须以 https:// 开头。",
         invalid_notice_payload: "请完整填写三个栏目的必填内容。",
@@ -122,6 +130,7 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
     });
     return () => {
       alive = false;
+      if (publishTimerRef.current !== null) window.clearTimeout(publishTimerRef.current);
       offDone();
       offError();
     };
@@ -136,12 +145,18 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
       setStatus("尚未连接中继服务器，无法提交。");
       return;
     }
-    if (!token.trim()) {
-      setStatus("请输入服务器公告管理员令牌。");
+    if (!password.trim()) {
+      setStatus("请输入公告管理员密码。");
       return;
     }
-    setStatus("正在通过加密连接提交…");
-    wsClient.publishPublicNotices({ adminToken: token.trim(), date, notices: draft });
+    setIsPublishing(true);
+    setStatus("正在提交，请稍候…");
+    wsClient.publishPublicNotices({ adminPassword: password.trim(), date, notices: draft });
+    publishTimerRef.current = window.setTimeout(() => {
+      setIsPublishing(false);
+      setStatus("服务器未在 15 秒内回应。请检查 App 是否已连接 wss://secureinchat.com，以及服务器服务是否正常。");
+      publishTimerRef.current = null;
+    }, 15_000);
   };
 
   return (
@@ -151,7 +166,7 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
           <div>
             <p className="text-xs font-semibold text-emerald-400">ADMIN AREA</p>
             <h2 className="mt-1 text-xl font-bold">今日公告管理</h2>
-            <p className="mt-1 text-xs leading-5 text-slate-400">草稿只保存在本机；管理员令牌不会写入本地存储。</p>
+            <p className="mt-1 text-xs leading-5 text-slate-400">草稿只保存在本机；管理员密码不会写入本地存储。</p>
           </div>
           <button type="button" className="rounded-lg px-2 py-1 text-slate-400" onClick={onClose}>关闭</button>
         </div>
@@ -165,12 +180,12 @@ export function NoticeAdminModal({ onClose }: { onClose: () => void }) {
           <Editor label="✨ 每日金句" value={draft.verse} onChange={(key, value) => update("verse", key, value)} />
         </div>
 
-        <label className="mt-4 block text-xs text-slate-400">服务器公告管理员令牌</label>
-        <input type="password" autoComplete="off" className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b0f14] px-3 py-2.5 text-sm outline-none focus:border-emerald-500" value={token} onChange={(event) => setToken(event.target.value)} placeholder="仅本次提交使用" />
+        <label className="mt-4 block text-xs text-slate-400">公告管理员密码</label>
+        <input type="password" autoComplete="current-password" className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b0f14] px-3 py-2.5 text-sm outline-none focus:border-emerald-500" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="仅本次提交使用" />
         {status && <p className="mt-3 text-sm leading-5 text-amber-200">{status}</p>}
 
-        <button type="button" className="mt-4 w-full rounded-xl bg-[#07c160] py-3.5 text-sm font-semibold text-white disabled:opacity-50" onClick={publish}>
-          一键提交今日公告
+        <button type="button" disabled={isPublishing} className="mt-4 w-full rounded-xl bg-[#07c160] py-3.5 text-sm font-semibold text-white disabled:opacity-50" onClick={publish}>
+          {isPublishing ? "提交中…" : "一键提交今日公告"}
         </button>
       </main>
     </div>

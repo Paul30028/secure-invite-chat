@@ -30,6 +30,7 @@ STRING_LIMITS: dict[str, int] = {
     "signal": 16,
     "mode": 16,
     "notice_admin_token": 256,
+    "notice_admin_password": 256,
     "date": 10,
 }
 
