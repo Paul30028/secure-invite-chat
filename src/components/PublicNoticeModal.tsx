@@ -14,9 +14,11 @@ function noticeTag(notice: DailyNotice): string {
 export function PublicNoticeModal({
   onClose,
   onEnterChat,
+  onOpenAdmin,
 }: {
   onClose: () => void;
   onEnterChat: () => void;
+  onOpenAdmin: () => void;
 }) {
   const [selected, setSelected] = useState<DailyNotice | null>(null);
   const [bundle, setBundle] = useState<DailyNoticeBundle>(() => builtInDailyNotices());
@@ -126,13 +128,20 @@ export function PublicNoticeModal({
             </button>
           ))}
         </section>
-        <div className="mt-auto pt-8">
+        <div className="mt-auto space-y-3 pt-8">
           <button
             type="button"
             className="w-full rounded-xl bg-[#07c160] py-3.5 text-base font-semibold text-white shadow-sm active:bg-[#06ad58]"
             onClick={enterChat}
           >
             进入聊天
+          </button>
+          <button
+            type="button"
+            className="w-full py-2 text-sm text-[#7a7f87]"
+            onClick={onOpenAdmin}
+          >
+            管理员专区
           </button>
         </div>
       </div>
