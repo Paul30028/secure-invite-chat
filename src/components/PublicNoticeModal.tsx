@@ -15,10 +15,12 @@ export function PublicNoticeModal({
   onClose,
   onEnterChat,
   onOpenAdmin,
+  onBack,
 }: {
   onClose: () => void;
   onEnterChat: () => void;
   onOpenAdmin: () => void;
+  onBack: () => void;
 }) {
   const [selected, setSelected] = useState<DailyNotice | null>(null);
   const [bundle, setBundle] = useState<DailyNoticeBundle>(() => builtInDailyNotices());
@@ -47,8 +49,8 @@ export function PublicNoticeModal({
     return (
       <main className="fixed inset-0 z-[55] overflow-y-auto bg-[#f7f8fa] px-5 py-10 text-[#1f2329]">
         <div className="mx-auto flex min-h-full w-full max-w-md flex-col">
-          <button type="button" className="mb-8 w-fit text-sm text-[#07c160]" onClick={() => setSelected(null)}>
-            ‹ 返回公告
+          <button type="button" className="mb-8 w-fit rounded-lg px-1 py-2 text-sm font-medium text-[#07c160] active:bg-[#edf9f0]" onClick={() => setSelected(null)}>
+            ← 返回公告
           </button>
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#edf9f0] text-2xl">
             {selected.icon}
@@ -95,6 +97,9 @@ export function PublicNoticeModal({
     <main className="fixed inset-0 z-[55] overflow-y-auto bg-[#f7f8fa] px-5 py-10 text-[#1f2329]">
       <div className="mx-auto flex min-h-full w-full max-w-md flex-col">
         <header className="mb-8">
+          <button type="button" className="mb-5 flex items-center gap-1 rounded-lg px-1 py-2 text-sm font-medium text-[#07c160] active:bg-[#edf9f0]" onClick={onBack}>
+            ← 返回聊天
+          </button>
           <img
             src="/app-logo.png"
             alt="邀群密聊标识"
