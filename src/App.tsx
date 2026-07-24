@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import "./App.css";
 import { useChatEngine } from "./hooks/useChatEngine";
+import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 import { Sidebar } from "./components/Sidebar";
 import { ChatWindow } from "./components/ChatWindow";
 import { CreateGroupModal } from "./components/CreateGroupModal";
@@ -88,6 +89,22 @@ function App() {
       refreshMembers(activeGroup.groupId);
     }
   }, [activeGroup?.groupId, localMode, refreshMembers]);
+
+  const backToList = useCallback(() => setActiveGroupId(null), [setActiveGroupId]);
+
+  // Android 物理返回键：先关最上层弹窗 → 再退回群列表 → 最后才退出 App
+  // （之前反复出现"进入管理员界面后退不出"，根因是从未接管过硬件返回键）
+  useAndroidBackButton({
+    closers: [
+      [showSettings, () => setShowSettings(false)],
+      [showMembers, () => setShowMembers(false)],
+      [showAdmin, () => setShowAdmin(false)],
+      [showJoin, () => setShowJoin(false)],
+      [showCreate, () => setShowCreate(false)],
+    ],
+    hasActiveGroup: !!activeGroupId,
+    onBackToList: backToList,
+  });
 
   return (
     <div
