@@ -29,6 +29,8 @@ STRING_LIMITS: dict[str, int] = {
     "call_id": 128,
     "signal": 16,
     "mode": 16,
+    "notice_admin_token": 256,
+    "date": 10,
 }
 
 
