@@ -20,7 +20,15 @@ export type DailyNoticeBundle = {
   source: "remote" | "built_in";
 };
 
-type NoticeEntry = Omit<DailyNotice, "id" | "category" | "icon">;
+type NoticeEntry = {
+  date?: string;
+  title: string;
+  summary: string;
+  body: string;
+  reference?: string;
+  audio_url?: string;
+  audio_title?: string;
+};
 type NoticeFeed = {
   updated_at?: string;
   devotion?: unknown;
