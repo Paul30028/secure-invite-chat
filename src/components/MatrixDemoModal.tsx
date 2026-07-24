@@ -105,7 +105,7 @@ export function MatrixDemoModal({ onClose }: { onClose: () => void }) {
             <h2 className="text-lg font-semibold">Matrix 功能 Demo</h2>
             <p className="mt-1 text-xs text-slate-500">登录、私有房间、同步与文字发送；尚未启用端到端加密。</p>
           </div>
-          <button type="button" className="px-2 py-1 text-slate-400" onClick={onClose}>关闭</button>
+          <button type="button" className="rounded-lg px-2 py-1 text-slate-300 active:bg-slate-800" onClick={onClose}>← 返回设置</button>
         </header>
 
         {!session ? (

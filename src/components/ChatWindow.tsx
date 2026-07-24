@@ -116,11 +116,11 @@ export function ChatWindow({
           {onBack && (
             <button
               type="button"
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[30px] font-light leading-none text-[#191919] active:bg-[#e8e8e8] sm:hidden"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[25px] font-light leading-none text-[#191919] active:bg-[#e8e8e8]"
               onClick={onBack}
               aria-label="返回聊天列表"
             >
-              ‹
+              ←
             </button>
           )}
           <div className="min-w-0">

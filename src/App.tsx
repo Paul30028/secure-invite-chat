@@ -17,6 +17,9 @@ import { PublicNoticeModal } from "./components/PublicNoticeModal";
 import { CallOverlay } from "./components/CallOverlay";
 import { useCallEngine } from "./hooks/useCallEngine";
 import { CallPeerPicker } from "./components/CallPeerPicker";
+import { AppUpdatePrompt } from "./components/AppUpdatePrompt";
+import { NoticeAdminModal } from "./components/NoticeAdminModal";
+import { checkForAppUpdate, type AppUpdate } from "./lib/appUpdate";
 
 function App() {
   const {
@@ -59,12 +62,26 @@ function App() {
   const [callPickerMode, setCallPickerMode] = useState<"audio" | "video" | null>(null);
   // 公开公告是应用首页，用户无需先进入设置。
   const [showPublicNotices, setShowPublicNotices] = useState(true);
+  const [publicNoticeOrigin, setPublicNoticeOrigin] = useState<"app" | "settings">("app");
+  const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
+  const [showNoticeAdmin, setShowNoticeAdmin] = useState(false);
 
   const activeGroup = groups.find((g) => g.groupId === activeGroupId) || null;
   const mobileShowSidebar = !activeGroupId;
   const showOnboarding = groups.length === 0 && !activeGroup;
   const activeMembers = activeGroup ? membersByGroup[activeGroup.groupId] || [] : [];
   const callPeers = activeMembers.filter((member) => member.deviceId !== deviceId && member.online);
+
+  // 启动时静默检测；只有后台明确发布更高版本和 HTTPS 下载地址时才提示。
+  useEffect(() => {
+    let alive = true;
+    void checkForAppUpdate().then((update) => {
+      if (alive && update) setAppUpdate(update);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // 创建群后弹出邀请码（真机验收：管理端发码）
   const prevAdminIds = useRef<Set<string>>(new Set());
@@ -154,7 +171,7 @@ function App() {
               if (!localMode) refreshMembers(activeGroup.groupId);
               setShowMembers(true);
             }}
-            callAvailable={!localMode && callPeers.length > 0}
+            callAvailable={!localMode}
             onStartAudioCall={() => setCallPickerMode("audio")}
             onStartVideoCall={() => setCallPickerMode("video")}
             memberCount={activeMembers.length || undefined}
@@ -202,6 +219,7 @@ function App() {
           onClose={() => setShowSettings(false)}
           onOpenPublicNotices={() => {
             setShowSettings(false);
+            setPublicNoticeOrigin("settings");
             setShowPublicNotices(true);
           }}
           onOpenMatrixDemo={() => {
@@ -214,11 +232,22 @@ function App() {
           }}
         />
       )}
-      {showMatrixDemo && <MatrixDemoModal onClose={() => setShowMatrixDemo(false)} />}
+      {showMatrixDemo && <MatrixDemoModal onClose={() => {
+        setShowMatrixDemo(false);
+        setShowSettings(true);
+      }} />}
       {showPublicNotices && (
         <PublicNoticeModal
           onClose={() => setShowPublicNotices(false)}
+          onBack={() => {
+            setShowPublicNotices(false);
+            if (publicNoticeOrigin === "settings") setShowSettings(true);
+          }}
           onEnterChat={() => void openDemoChat()}
+          onOpenAdmin={() => {
+            setShowPublicNotices(false);
+            setShowNoticeAdmin(true);
+          }}
         />
       )}
 
@@ -249,6 +278,15 @@ function App() {
           audioMuted={callEngine.audioMuted}
           videoPaused={callEngine.videoPaused}
         />
+      )}
+
+      {showNoticeAdmin && <NoticeAdminModal onClose={() => {
+        setShowNoticeAdmin(false);
+        setShowPublicNotices(true);
+      }} />}
+
+      {appUpdate && (
+        <AppUpdatePrompt update={appUpdate} onClose={() => setAppUpdate(null)} />
       )}
 
       {securityAlert && (

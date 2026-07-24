@@ -8,6 +8,7 @@
   SIC_MESSAGE_RATE_PER_MINUTE  每连接每分钟允许的密文消息数，默认 60
   SIC_MESSAGE_RATE_BURST  每连接短时突发消息数，默认 12
   SIC_HISTORY_PAGE_SIZE  每次历史同步的最大消息数，默认 100
+  SIC_NOTICE_ADMIN_PASSWORD  公告管理员密码；设置后允许通过 WSS 发布每日公告
 
 未来中继：本进程仍可只监听 127.0.0.1，由前面的 TLS 反代转发；
 业务协议不变，见客户端 src/lib/protocol.ts。
@@ -36,6 +37,10 @@ HISTORY_PAGE_SIZE = _positive_int_env("SIC_HISTORY_PAGE_SIZE", 100)
 ADVERTISE_LAN_HINTS = os.environ.get("SIC_ADVERTISE_LAN_HINTS", "0") == "1"
 # 生产环境设为 1：拒绝无设备公钥或无挑战签名的旧客户端。
 REQUIRE_DEVICE_AUTH = os.environ.get("SIC_REQUIRE_DEVICE_AUTH", "0") == "1"
+# 公开公告的独立管理密码；为空时禁用 WSS 公告发布接口。
+# 保留旧变量仅用于平滑升级，新的部署应使用 SIC_NOTICE_ADMIN_PASSWORD。
+NOTICE_ADMIN_PASSWORD = os.environ.get("SIC_NOTICE_ADMIN_PASSWORD", "").strip()
+NOTICE_ADMIN_TOKEN = os.environ.get("SIC_NOTICE_ADMIN_TOKEN", "").strip()
 
 # 浏览器客户端可通过 Origin 约束跨站 WebSocket 连接；原生客户端通常没有
 # Origin，因此公开部署应在 TLS 反代层另行限制来源和速率。

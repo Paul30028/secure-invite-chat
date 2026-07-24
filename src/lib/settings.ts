@@ -14,6 +14,12 @@ const INVITE_RELAY_KEY = "sic_invite_relay_url";
 const LOCAL_MODE_KEY = "sic_local_mode_v2";
 /** 桌面连上服务器后缓存的「给手机用的地址」 */
 const PHONE_HINT_KEY = "sic_phone_ws_hints";
+/** 旧 APK 的未加密默认地址：升级后自动迁移到正式 WSS 域名。 */
+const LEGACY_DEFAULT_URLS = new Set([
+  "ws://127.0.0.1:8765",
+  "ws://192.168.1.1:8765",
+  "ws://212.135.212.22:8765",
+]);
 
 function isNative(): boolean {
   try {
@@ -98,7 +104,7 @@ export function classifyWsUrl(url: string): {
     return {
       normalized: n,
       kind: "wss",
-      hint: "TLS 地址（未来中继/公网）；当前阶段若已有证书也可直用",
+      hint: "已加密的正式中继地址，可用于手机网络与公网连接",
       ready: true,
     };
   }
@@ -132,7 +138,14 @@ export function describeRelayUrl(url: string) {
 
 export function getWsUrl(): string {
   try {
-    return localStorage.getItem(WS_KEY) || builtInDefault();
+    const saved = localStorage.getItem(WS_KEY);
+    // 仅迁移项目早期的示例/旧公网地址；用户手工设置的其他地址保持不变。
+    if (saved && LEGACY_DEFAULT_URLS.has(normalizeWsUrl(saved))) {
+      const currentDefault = builtInDefault();
+      localStorage.setItem(WS_KEY, currentDefault);
+      return currentDefault;
+    }
+    return saved || builtInDefault();
   } catch {
     return builtInDefault();
   }
