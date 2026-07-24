@@ -108,11 +108,14 @@ export function PublicNoticeModal({
           <p className="text-sm font-medium text-[#07c160]">SECURE INVITE CHAT</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">今日公告</h1>
           <p className="mt-2 text-sm leading-relaxed text-[#7a7f87]">
-            每日按上海日期自动更新；点开栏目查看内容，再进入聊天。
+            {bundle.mode === "test" ? "当前为公告测试模式；确认内容后可切换每日模式。" : "每日按上海日期自动更新；点开栏目查看内容，再进入聊天。"}
           </p>
           <p className="mt-2 text-xs text-[#9aa0a8]">
-            {bundle.source === "remote" ? "已读取后台公告" : "暂时使用 App 内置轮换内容"} · {bundle.date}
+            {bundle.mode === "test" ? "测试模式" : "每日模式"} · {bundle.source === "remote" ? "已读取后台公告" : "暂时使用 App 内置轮换内容"} · {bundle.date}
           </p>
+          <button type="button" className="mt-3 rounded-lg border border-[#b9dfc0] px-3 py-2 text-xs font-medium text-[#07a650] active:bg-[#edf9f0]" onClick={() => void fetchDailyNotices().then(setBundle)}>
+            刷新公告
+          </button>
         </header>
         <section className="space-y-3">
           {bundle.notices.map((notice) => (
