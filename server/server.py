@@ -20,6 +20,7 @@ server.py - 邀群密聊 WebSocket 后端（中国区直连）
 import asyncio
 import json
 import logging
+import secrets as secrets_mod
 
 import websockets
 from websockets.asyncio.server import serve
@@ -75,6 +76,23 @@ def message_rate_allowed(ws) -> bool:
     return bucket.allow()
 
 
+ACTION_LIMITERS: dict[object, TokenBucket] = {}
+
+
+def action_rate_allowed(ws) -> bool:
+    """建群/加群/踢人/重新生成邀请码等低频敏感操作的限流，按连接对象计数"""
+    import config as cfg
+
+    bucket = ACTION_LIMITERS.get(ws)
+    if bucket is None:
+        bucket = TokenBucket(
+            per_minute=cfg.ACTION_RATE_PER_MINUTE,
+            burst=cfg.ACTION_RATE_BURST,
+        )
+        ACTION_LIMITERS[ws] = bucket
+    return bucket.allow()
+
+
 def is_registered(ws, group_id: str, device_id: str) -> bool:
     return (ws, device_id) in GROUP_CONNECTIONS.get(group_id, set())
 
@@ -106,6 +124,7 @@ async def unregister_all(ws):
     CONNECTION_GROUPS.pop(ws, None)
     CONNECTION_CHALLENGES.pop(ws, None)
     MESSAGE_LIMITERS.pop(ws, None)
+    ACTION_LIMITERS.pop(ws, None)
 
 
 def online_device_ids(group_id: str) -> set:
@@ -223,6 +242,9 @@ async def handle_connection(ws):
                 continue
 
             if mtype == "create_group":
+                if not action_rate_allowed(ws):
+                    await send_error(ws, "rate_limited")
+                    continue
                 name = (msg.get("name") or "").strip()
                 device_id = msg.get("device_id")
                 display_name = (msg.get("display_name") or "").strip() or "Admin"
@@ -245,6 +267,9 @@ async def handle_connection(ws):
                 log.info(f"群组已创建: {result['group_id']} name={name}")
 
             elif mtype == "join_group":
+                if not action_rate_allowed(ws):
+                    await send_error(ws, "rate_limited")
+                    continue
                 invite_code = msg.get("invite_code")
                 device_id = msg.get("device_id")
                 display_name = (msg.get("display_name") or "").strip() or "成员"
@@ -332,11 +357,14 @@ async def handle_connection(ws):
                 await ws.send(json.dumps(members_payload(group_id)))
 
             elif mtype == "kick_member":
+                if not action_rate_allowed(ws):
+                    await send_error(ws, "rate_limited")
+                    continue
                 group_id = msg.get("group_id")
                 admin_token = msg.get("admin_token")
                 target = msg.get("target_device_id")
                 group = db.find_group_by_id(group_id) if group_id else None
-                if not group or group["admin_token"] != admin_token:
+                if not group or not secrets_mod.compare_digest(group["admin_token"], admin_token or ""):
                     await send_error(ws, "not_authorized")
                     continue
                 if cfg.REQUIRE_DEVICE_AUTH and not is_registered_for_group(ws, group_id):
@@ -453,10 +481,13 @@ async def handle_connection(ws):
                 await broadcast(group_id, {"type": "message", **saved})
 
             elif mtype == "regenerate_code":
+                if not action_rate_allowed(ws):
+                    await send_error(ws, "rate_limited")
+                    continue
                 group_id = msg.get("group_id")
                 admin_token = msg.get("admin_token")
                 group = db.find_group_by_id(group_id) if group_id else None
-                if not group or group["admin_token"] != admin_token:
+                if not group or not secrets_mod.compare_digest(group["admin_token"], admin_token or ""):
                     await send_error(ws, "not_authorized")
                     continue
                 if cfg.REQUIRE_DEVICE_AUTH and not is_registered_for_group(ws, group_id):

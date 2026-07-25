@@ -138,7 +138,6 @@ function App() {
             onOpenSettings={() => setShowSettings(true)}
             onCreate={() => setShowCreate(true)}
             onJoin={() => setShowJoin(true)}
-            onOpenDemo={() => void openDemoChat()}
           />
         ) : activeGroup ? (
           <ChatWindow
@@ -154,9 +153,6 @@ function App() {
               if (!localMode) refreshMembers(activeGroup.groupId);
               setShowMembers(true);
             }}
-            callAvailable={!localMode && callPeers.length > 0}
-            onStartAudioCall={() => setCallPickerMode("audio")}
-            onStartVideoCall={() => setCallPickerMode("video")}
             memberCount={activeMembers.length || undefined}
             onLeave={() => leaveGroup(activeGroup.groupId)}
             onBack={() => setActiveGroupId(null)}

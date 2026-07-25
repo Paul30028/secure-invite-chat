@@ -27,10 +27,16 @@ export function AdminHome({
         </p>
 
         <div
-          className={ounded-xl px-4 py-2.5 text-xs mb-6 }
+          className={`rounded-xl px-4 py-2.5 text-xs mb-6 ${
+            status === "online"
+              ? "bg-[#e8f9ee] text-[#1a7f4b]"
+              : status === "local"
+                ? "bg-[#fff8e8] text-[#805d1b]"
+                : "bg-[#fff2f2] text-[#a33c3c]"
+          }`}
         >
           {status === "online"
-            ? 已连接 · 
+            ? `已连接 · ${info.hint}`
             : status === "local"
               ? "单机调试"
               : "未连接"}

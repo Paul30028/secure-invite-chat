@@ -42,13 +42,10 @@ REQUIRE_DEVICE_AUTH = os.environ.get("SIC_REQUIRE_DEVICE_AUTH", "0") == "1"
 _allowed_origins = os.environ.get("SIC_ALLOWED_ORIGINS", "").strip()
 ALLOWED_ORIGINS = [v.strip() for v in _allowed_origins.split(",") if v.strip()] or None
 
-# --- 限流参数（令牌桶）---
-# 每个 (group_id, device_id) 独立计数，防止单个成员刷屏/刷爆SQLite
-RATE_LIMIT_MSG_CAPACITY = int(os.environ.get("SIC_RATE_MSG_CAPACITY", "20"))  # 桶容量（突发上限）
-RATE_LIMIT_MSG_REFILL_PER_SEC = float(os.environ.get("SIC_RATE_MSG_REFILL", "2"))  # 每秒回填令牌数
-# 建群/加群等低频操作，按连接（ws对象）计数，防止连接建立后疯狂刷 create_group
-RATE_LIMIT_ACTION_CAPACITY = int(os.environ.get("SIC_RATE_ACTION_CAPACITY", "10"))
-RATE_LIMIT_ACTION_REFILL_PER_SEC = float(os.environ.get("SIC_RATE_ACTION_REFILL", "1"))
+# 建群/加群/踢人等低频敏感操作，按连接（ws对象）计数限流，
+# 防止单连接短时间内狂刷这些操作（例如脚本化批量建群/踢人造成的滥用）
+ACTION_RATE_PER_MINUTE = _positive_int_env("SIC_ACTION_RATE_PER_MINUTE", 20)
+ACTION_RATE_BURST = _positive_int_env("SIC_ACTION_RATE_BURST", 5)
 
 
 def list_lan_ips() -> list[str]:
