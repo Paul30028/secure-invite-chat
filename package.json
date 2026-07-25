@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "vitest run && py -m unittest server.tests.test_auth server.tests.test_history server.tests.test_protocol server.tests.test_rate_limit server.tests.test_key_deliveries",
     "preview": "vite preview",
     "tauri": "tauri",
     "server": "cd server && python server.py",
@@ -35,6 +36,7 @@
     "lucide-react": "^1.24.0",
     "tailwindcss": "^4.3.2",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "^3.2.4"
   }
 }

@@ -5,6 +5,10 @@ export type LocalGroup = {
   isAdmin: boolean;
   adminToken?: string;
   keyJwk: string;
+  /** Current key epoch. Existing groups are migrated as version 1. */
+  keyVersion?: number;
+  /** version -> AES-GCM JWK; only current is handed to a newly joined device. */
+  keyJwks?: Record<string, string>;
   groupSecret?: string;
   lastKnownInviteCode: string;
 };
@@ -16,6 +20,7 @@ export type GroupMember = {
   joinedAt: number;
   isAdmin: boolean;
   online: boolean;
+  ecdhPub?: string;
 };
 
 export type FileMeta = {

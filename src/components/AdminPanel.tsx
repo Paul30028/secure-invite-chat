@@ -20,12 +20,22 @@ export function AdminPanel({
   groupSecret,
   onClose,
   onRegenerate,
+  onRotateKey,
+  onRevoke,
+  onSetExpiry,
+  onPublishNotice,
+  onMaintenance,
 }: {
   group: LocalGroup;
   shareInvite: string;
   groupSecret: string;
   onClose: () => void;
   onRegenerate: () => void;
+  onRotateKey: () => void;
+  onRevoke: () => void;
+  onSetExpiry: (hours: number | null) => void;
+  onPublishNotice: (notice: { dailyDevotion: string; hymn: string; scripture: string }) => void;
+  onMaintenance: (enabled: boolean) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
@@ -33,6 +43,10 @@ export function AdminPanel({
   const [qr, setQr] = useState("");
   const [embedServer, setEmbedServer] = useState(() => getInviteRelayUrl());
   const [showEmbed, setShowEmbed] = useState(!!getInviteRelayUrl());
+  const [dailyDevotion, setDailyDevotion] = useState("");
+  const [hymn, setHymn] = useState("");
+  const [scripture, setScripture] = useState("");
+  const [maintenance, setMaintenance] = useState(false);
 
   const liveInvite = buildShareInvite(
     group.lastKnownInviteCode,
@@ -134,10 +148,31 @@ export function AdminPanel({
         >
           作废旧入群码（群密钥不变，已在群成员仍可聊天）
         </button>
+        <div className="flex gap-2 mb-3">
+          <button type="button" className="flex-1 text-xs py-2 rounded-lg bg-[#21262d] text-white" onClick={() => onSetExpiry(24)}>有效期 24 小时</button>
+          <button type="button" className="flex-1 text-xs py-2 rounded-lg bg-[#21262d] text-white" onClick={() => onSetExpiry(null)}>长期有效</button>
+          <button type="button" className="text-xs py-2 px-3 rounded-lg text-red-300 bg-red-950/30" onClick={onRevoke}>撤销</button>
+        </div>
+        <button
+          type="button"
+          className="w-full px-3 py-2 text-xs rounded-lg text-amber-300 hover:bg-amber-950/30 mb-2"
+          onClick={onRotateKey}
+        >
+          立即轮换群密钥（在线成员即时更新，离线成员重连后补收）
+        </button>
         <p className="text-[10px] text-slate-600 mb-3 leading-relaxed">
           邀请串 = 入群码（可换）+ 群密钥材料（建群时<strong className="text-slate-400">随机生成</strong>
           ，每个群不同）。
         </p>
+
+        <section className="border border-[#30363d] rounded-lg p-3 mb-4">
+          <h3 className="text-sm font-semibold text-white mb-2">每日公告发布</h3>
+          <textarea className="w-full mb-2 rounded bg-[#0d1117] border border-[#30363d] p-2 text-xs" placeholder="每日灵修" value={dailyDevotion} onChange={e => setDailyDevotion(e.target.value)} />
+          <input className="w-full mb-2 rounded bg-[#0d1117] border border-[#30363d] p-2 text-xs" placeholder="赞美诗歌 / 链接" value={hymn} onChange={e => setHymn(e.target.value)} />
+          <textarea className="w-full mb-2 rounded bg-[#0d1117] border border-[#30363d] p-2 text-xs" placeholder="今日金句（必填）" value={scripture} onChange={e => setScripture(e.target.value)} />
+          <button type="button" className="w-full py-2 rounded bg-[#07c160] text-xs text-white disabled:opacity-40" disabled={!scripture.trim()} onClick={() => onPublishNotice({ dailyDevotion, hymn, scripture })}>发布并广播</button>
+          <label className="mt-3 flex justify-between text-xs text-amber-200">维护模式<button type="button" className={`px-2 py-1 rounded ${maintenance ? "bg-red-600" : "bg-[#30363d]"}`} onClick={() => { const next = !maintenance; setMaintenance(next); onMaintenance(next); }}>{maintenance ? "已开启" : "已关闭"}</button></label>
+        </section>
 
         {FEATURES.inviteEmbedServer && (
           <div className="mb-4">

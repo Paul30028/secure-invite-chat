@@ -20,6 +20,7 @@ STRING_LIMITS: dict[str, int] = {
     "invite_code": 256,
     "admin_token": 256,
     "identity_pub": 2_048,
+    "ecdh_pub": 2_048,
     "auth_sig": 512,
     "ciphertext": MAX_CIPHERTEXT_CHARS,
     "iv": 128,
@@ -29,6 +30,8 @@ STRING_LIMITS: dict[str, int] = {
     "call_id": 128,
     "signal": 16,
     "mode": 16,
+    "wrapped_blob": 16_000,
+    "delivery_id": 128,
 }
 
 
@@ -55,6 +58,10 @@ def validate_message(message: object) -> str | None:
     if before_ts is not None and (
         not isinstance(before_ts, int) or isinstance(before_ts, bool) or before_ts < 0
     ):
+        return "invalid_field_type"
+
+    key_version = message.get("key_version")
+    if key_version is not None and (not isinstance(key_version, int) or isinstance(key_version, bool) or key_version < 1):
         return "invalid_field_type"
 
     return None

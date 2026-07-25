@@ -26,6 +26,8 @@ export function MembersPanel({
   onClose,
   onRefresh,
   onKick,
+  onShareHistory,
+  onMute,
 }: {
   group: LocalGroup;
   members: GroupMember[];
@@ -33,6 +35,8 @@ export function MembersPanel({
   onClose: () => void;
   onRefresh: () => void;
   onKick: (deviceId: string) => void;
+  onShareHistory?: (deviceId: string) => void;
+  onMute?: (deviceId: string) => void;
 }) {
   const onlineCount = members.filter((m) => m.online).length;
 
@@ -128,6 +132,12 @@ export function MembersPanel({
                       }}
                     >
                       踢出
+                    </button>
+                  )}
+                  {canKick && onMute && <button type="button" className="shrink-0 text-[11px] px-2 py-1.5 rounded-lg bg-amber-950/50 text-amber-300" onClick={() => onMute(m.deviceId)}>禁言</button>}
+                  {group.isAdmin && !isMe && onShareHistory && (
+                    <button type="button" className="shrink-0 text-[11px] px-2 py-1 rounded-lg bg-slate-800 text-slate-300" onClick={() => onShareHistory(m.deviceId)}>
+                      分享历史
                     </button>
                   )}
                 </li>

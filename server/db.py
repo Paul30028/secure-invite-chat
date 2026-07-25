@@ -34,6 +34,8 @@ def init_db():
             name TEXT NOT NULL,
             invite_code TEXT UNIQUE NOT NULL,
             admin_token TEXT NOT NULL,
+            invite_expires_at INTEGER,
+            invite_revoked INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL
         );
 
@@ -43,6 +45,7 @@ def init_db():
             device_id TEXT NOT NULL,
             display_name TEXT NOT NULL,
             identity_pub TEXT,
+            ecdh_pub TEXT,
             joined_at INTEGER NOT NULL,
             UNIQUE(group_id, device_id)
         );
@@ -55,10 +58,25 @@ def init_db():
             msg_type TEXT NOT NULL,
             ciphertext TEXT NOT NULL,
             iv TEXT NOT NULL,
+            key_version INTEGER NOT NULL DEFAULT 1,
             ts INTEGER NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS pending_key_deliveries (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            device_id TEXT NOT NULL,
+            sender_device_id TEXT NOT NULL,
+            key_version INTEGER NOT NULL,
+            wrapped_blob TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_pending_key_deliveries_device ON pending_key_deliveries(group_id, device_id);
+
         CREATE INDEX IF NOT EXISTS idx_messages_group_ts ON messages(group_id, ts);
+
+        CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS muted_members (group_id TEXT NOT NULL, device_id TEXT NOT NULL, PRIMARY KEY(group_id, device_id));
         """
     )
     # 兼容旧库：补充身份公钥与管理员标记列。
@@ -66,6 +84,19 @@ def init_db():
         conn.execute("ALTER TABLE members ADD COLUMN identity_pub TEXT")
     except sqlite3.OperationalError:
         pass
+    try:
+        conn.execute("ALTER TABLE members ADD COLUMN ecdh_pub TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE messages ADD COLUMN key_version INTEGER NOT NULL DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
+    for statement in ("ALTER TABLE groups ADD COLUMN invite_expires_at INTEGER", "ALTER TABLE groups ADD COLUMN invite_revoked INTEGER NOT NULL DEFAULT 0"):
+        try:
+            conn.execute(statement)
+        except sqlite3.OperationalError:
+            pass
     # 兼容旧库：补充 is_admin 列
     try:
         conn.execute(
@@ -100,6 +131,7 @@ def create_group(
     admin_device_id: str,
     admin_display_name: str,
     identity_pub: str | None = None,
+    ecdh_pub: str | None = None,
 ) -> dict:
     conn = get_conn()
     group_id = str(uuid.uuid4())
@@ -113,9 +145,9 @@ def create_group(
     member_id = str(uuid.uuid4())
     conn.execute(
         """INSERT INTO members
-           (id, group_id, device_id, display_name, identity_pub, joined_at, is_admin)
-           VALUES (?,?,?,?,?,?,1)""",
-        (member_id, group_id, admin_device_id, admin_display_name, identity_pub, now),
+           (id, group_id, device_id, display_name, identity_pub, ecdh_pub, joined_at, is_admin)
+           VALUES (?,?,?,?,?,?,?,1)""",
+        (member_id, group_id, admin_device_id, admin_display_name, identity_pub, ecdh_pub, now),
     )
     conn.commit()
     conn.close()
@@ -174,6 +206,7 @@ def add_member(
     device_id: str,
     display_name: str,
     identity_pub: str | None = None,
+    ecdh_pub: str | None = None,
 ) -> str | None:
     """
     加入成员。成功返回 None；失败返回错误码：
@@ -188,21 +221,25 @@ def add_member(
 
     conn = get_conn()
     existing = conn.execute(
-        "SELECT identity_pub FROM members WHERE group_id=? AND device_id=?",
+        "SELECT identity_pub, ecdh_pub FROM members WHERE group_id=? AND device_id=?",
         (group_id, device_id),
     ).fetchone()
     if existing and existing["identity_pub"] and existing["identity_pub"] != identity_pub:
         conn.close()
         return "device_identity_mismatch"
+    if existing and existing["ecdh_pub"] and existing["ecdh_pub"] != ecdh_pub:
+        conn.close()
+        return "device_ecdh_mismatch"
     now = int(time.time())
     conn.execute(
         """INSERT INTO members
-           (id, group_id, device_id, display_name, identity_pub, joined_at, is_admin)
-           VALUES (?,?,?,?,?,?,0)
+           (id, group_id, device_id, display_name, identity_pub, ecdh_pub, joined_at, is_admin)
+           VALUES (?,?,?,?,?,?,?,0)
            ON CONFLICT(group_id, device_id) DO UPDATE SET
              display_name=excluded.display_name,
-             identity_pub=COALESCE(members.identity_pub, excluded.identity_pub)""",
-        (str(uuid.uuid4()), group_id, device_id, name, identity_pub, now),
+             identity_pub=COALESCE(members.identity_pub, excluded.identity_pub),
+             ecdh_pub=COALESCE(members.ecdh_pub, excluded.ecdh_pub)""",
+        (str(uuid.uuid4()), group_id, device_id, name, identity_pub, ecdh_pub, now),
     )
     conn.commit()
     conn.close()
@@ -245,7 +282,7 @@ def list_members(group_id: str) -> list:
     conn = get_conn()
     try:
         rows = conn.execute(
-            """SELECT device_id, display_name, joined_at, is_admin
+            """SELECT device_id, display_name, joined_at, is_admin, ecdh_pub
                FROM members WHERE group_id=? ORDER BY is_admin DESC, joined_at ASC""",
             (group_id,),
         ).fetchall()
@@ -281,20 +318,32 @@ def remove_member(group_id: str, device_id: str) -> bool:
 def regenerate_invite_code(group_id: str) -> str:
     new_code = secrets.token_urlsafe(9)
     conn = get_conn()
-    conn.execute("UPDATE groups SET invite_code=? WHERE id=?", (new_code, group_id))
+    conn.execute("UPDATE groups SET invite_code=?, invite_revoked=0 WHERE id=?", (new_code, group_id))
     conn.commit()
     conn.close()
     return new_code
 
 
-def save_message(group_id, sender_device_id, sender_name, msg_type, ciphertext, iv) -> dict:
+def set_invite_expiry(group_id: str, expires_at: int | None):
+    conn = get_conn(); conn.execute("UPDATE groups SET invite_expires_at=? WHERE id=?", (expires_at, group_id)); conn.commit(); conn.close()
+
+
+def revoke_invite(group_id: str):
+    conn = get_conn(); conn.execute("UPDATE groups SET invite_revoked=1 WHERE id=?", (group_id,)); conn.commit(); conn.close()
+
+
+def invite_is_active(group: dict) -> bool:
+    return not bool(group.get("invite_revoked")) and (not group.get("invite_expires_at") or int(group["invite_expires_at"]) > int(time.time()))
+
+
+def save_message(group_id, sender_device_id, sender_name, msg_type, ciphertext, iv, key_version=1) -> dict:
     conn = get_conn()
     msg_id = str(uuid.uuid4())
     ts = int(time.time() * 1000)
     conn.execute(
-        """INSERT INTO messages (id, group_id, sender_device_id, sender_name, msg_type, ciphertext, iv, ts)
-           VALUES (?,?,?,?,?,?,?,?)""",
-        (msg_id, group_id, sender_device_id, sender_name, msg_type, ciphertext, iv, ts),
+        """INSERT INTO messages (id, group_id, sender_device_id, sender_name, msg_type, ciphertext, iv, key_version, ts)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
+        (msg_id, group_id, sender_device_id, sender_name, msg_type, ciphertext, iv, key_version, ts),
     )
     conn.commit()
     conn.close()
@@ -306,6 +355,7 @@ def save_message(group_id, sender_device_id, sender_name, msg_type, ciphertext, 
         "msg_type": msg_type,
         "ciphertext": ciphertext,
         "iv": iv,
+        "key_version": key_version,
         "ts": ts,
     }
 
@@ -357,3 +407,62 @@ def list_member_group_ids(device_id: str):
     ).fetchall()
     conn.close()
     return [r["group_id"] for r in rows]
+
+
+def get_app_state(key: str, default: dict) -> dict:
+    conn = get_conn(); row = conn.execute("SELECT value FROM app_state WHERE key=?", (key,)).fetchone(); conn.close()
+    if not row: return default
+    try:
+        import json
+        return json.loads(row["value"])
+    except Exception: return default
+
+
+def set_app_state(key: str, value: dict):
+    import json
+    conn = get_conn(); conn.execute("INSERT INTO app_state(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, json.dumps(value, ensure_ascii=False))); conn.commit(); conn.close()
+
+
+def get_daily_notice() -> dict:
+    return get_app_state("daily_notice", {"dailyDevotion": "", "hymn": "", "scripture": ""})
+
+
+def save_daily_notice(notice: dict): set_app_state("daily_notice", notice)
+
+
+def is_maintenance() -> bool: return bool(get_app_state("maintenance", {"enabled": False}).get("enabled"))
+
+
+def set_maintenance(enabled: bool): set_app_state("maintenance", {"enabled": bool(enabled)})
+
+
+def save_pending_key_delivery(group_id: str, device_id: str, sender_device_id: str, key_version: int, wrapped_blob: str) -> dict:
+    delivery = {"id": str(uuid.uuid4()), "group_id": group_id, "device_id": device_id, "sender_device_id": sender_device_id, "key_version": key_version, "wrapped_blob": wrapped_blob, "created_at": int(time.time() * 1000)}
+    conn = get_conn()
+    conn.execute("""INSERT INTO pending_key_deliveries (id, group_id, device_id, sender_device_id, key_version, wrapped_blob, created_at)
+                    VALUES (:id,:group_id,:device_id,:sender_device_id,:key_version,:wrapped_blob,:created_at)""", delivery)
+    conn.commit(); conn.close()
+    return delivery
+
+
+def list_pending_key_deliveries(group_id: str, device_id: str) -> list[dict]:
+    conn = get_conn()
+    rows = conn.execute("SELECT * FROM pending_key_deliveries WHERE group_id=? AND device_id=? ORDER BY created_at ASC", (group_id, device_id)).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def delete_pending_key_delivery(delivery_id: str, device_id: str) -> bool:
+    conn = get_conn()
+    cur = conn.execute("DELETE FROM pending_key_deliveries WHERE id=? AND device_id=?", (delivery_id, device_id))
+    conn.commit(); ok = cur.rowcount > 0; conn.close()
+    return ok
+
+def set_member_muted(group_id: str, device_id: str, muted: bool):
+    conn = get_conn()
+    if muted: conn.execute("INSERT OR IGNORE INTO muted_members(group_id,device_id) VALUES(?,?)", (group_id, device_id))
+    else: conn.execute("DELETE FROM muted_members WHERE group_id=? AND device_id=?", (group_id, device_id))
+    conn.commit(); conn.close()
+
+def is_member_muted(group_id: str, device_id: str) -> bool:
+    conn = get_conn(); row = conn.execute("SELECT 1 FROM muted_members WHERE group_id=? AND device_id=?", (group_id, device_id)).fetchone(); conn.close(); return row is not None

@@ -29,6 +29,12 @@ export type EnvelopeV1 = {
   pad?: string;
 };
 
+export type EnvelopeV2 = Omit<EnvelopeV1, "v"> & {
+  v: 2;
+  /** Duplicated on the relay message so receivers can choose the key before decrypting. */
+  key_version: number;
+};
+
 function randomPad(min = 0, max = 48): string {
   const span = max - min + 1;
   const rejectionLimit = 256 - (256 % span);
@@ -48,6 +54,7 @@ export async function sealEnvelope(params: {
   senderName: string;
   deviceId: string;
   groupId: string;
+  keyVersion: number;
 }): Promise<string> {
   const id = await getOrCreateDeviceIdentity();
   const ts = Date.now();
@@ -56,10 +63,11 @@ export async function sealEnvelope(params: {
     deviceId: params.deviceId,
     ts,
     groupId: params.groupId,
+    keyVersion: params.keyVersion,
   });
   const sig = await signPayload(id.privateKey, toSign);
-  const env: EnvelopeV1 = {
-    v: 1,
+  const env: EnvelopeV2 = {
+    v: 2,
     kind: params.kind,
     body: params.body,
     senderName: params.senderName,
@@ -67,6 +75,7 @@ export async function sealEnvelope(params: {
     ts,
     pub: id.publicKeySpkiB64,
     sig,
+    key_version: params.keyVersion,
     pad: randomPad(),
   };
   return JSON.stringify(env);
@@ -78,6 +87,7 @@ export type OpenedEnvelope = {
   senderName: string;
   deviceId: string;
   ts: number;
+  keyVersion: number;
   trust: TrustResult;
   sigValid: boolean | null;
   /** 非信封旧消息 */
@@ -90,8 +100,8 @@ export async function openEnvelope(
 ): Promise<OpenedEnvelope> {
   // 兼容旧版：直接是纯文本，或以 {name,mime,dataB64} 文件 JSON
   try {
-    const obj = JSON.parse(plain) as EnvelopeV1;
-    if (obj && obj.v === 1 && obj.kind && obj.body !== undefined) {
+    const obj = JSON.parse(plain) as EnvelopeV1 | EnvelopeV2;
+    if (obj && (obj.v === 1 || obj.v === 2) && obj.kind && obj.body !== undefined) {
       let sigValid: boolean | null = null;
       let trust: TrustResult = { status: "no_sig" };
       if (obj.sig && obj.pub) {
@@ -100,6 +110,7 @@ export async function openEnvelope(
           deviceId: obj.deviceId,
           ts: obj.ts,
           groupId,
+          ...(obj.v === 2 ? { keyVersion: obj.key_version } : {}),
         });
         // 验签必须发生在写入 TOFU 记录之前；否则恶意成员可用无效签名
         // 污染某个 deviceId 的首次信任公钥。
@@ -116,6 +127,7 @@ export async function openEnvelope(
         senderName: obj.senderName,
         deviceId: obj.deviceId,
         ts: obj.ts,
+        keyVersion: obj.v === 2 ? obj.key_version : 1,
         trust,
         sigValid,
         legacy: false,
@@ -135,6 +147,7 @@ export async function openEnvelope(
         senderName: "未知",
         deviceId: "",
         ts: 0,
+        keyVersion: 1,
         trust: { status: "no_sig" },
         sigValid: null,
         legacy: true,
@@ -150,6 +163,7 @@ export async function openEnvelope(
     senderName: "未知",
     deviceId: "",
     ts: 0,
+    keyVersion: 1,
     trust: { status: "no_sig" },
     sigValid: null,
     legacy: true,

@@ -31,6 +31,8 @@ import {
 import { LIMITS } from "../config/appConfig";
 import { randomUUID } from "../lib/uuid";
 import { generateRandomToken } from "../lib/random";
+import { deriveSharedWrapKey, rotateGroupKey, unwrapGroupSecret, wrapGroupSecret } from "../lib/keyRotation";
+import { getOrCreateDeviceIdentity } from "../lib/deviceIdentity";
 import type { ChatMessage, GroupMember, LocalGroup, TrustBadge } from "../lib/types";
 import type { ServerMember } from "../lib/wsClient";
 
@@ -41,6 +43,7 @@ function mapServerMembers(list: ServerMember[]): GroupMember[] {
     joinedAt: m.joined_at,
     isAdmin: !!m.is_admin,
     online: !!m.online,
+    ecdhPub: m.ecdh_pub,
   }));
 }
 
@@ -88,6 +91,9 @@ function loadAllCachedMessages(): Record<string, ChatMessage[]> {
 export function useChatEngine() {
   const deviceId = useRef(getOrCreateDeviceId()).current;
   const keyCache = useRef<Map<string, CryptoKey>>(new Map());
+  const pendingRotations = useRef<Set<string>>(new Set());
+  const seenMembers = useRef<Record<string, Set<string>>>({});
+  const memberRegistry = useRef<Record<string, GroupMember[]>>({});
   const localModeRef = useRef(isLocalMode());
 
   const [groups, setGroups] = useState<LocalGroup[]>(() => getLocalGroups());
@@ -102,6 +108,8 @@ export function useChatEngine() {
   const [localMode, setLocalModeState] = useState(() => isLocalMode());
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [securityAlert, setSecurityAlert] = useState<string | null>(null);
+  const [dailyNotice, setDailyNotice] = useState({ dailyDevotion: "", hymn: "", scripture: "" });
+  const [maintenance, setMaintenance] = useState(false);
   /** groupId -> 成员列表 */
   const [membersByGroup, setMembersByGroup] = useState<Record<string, GroupMember[]>>({});
   /** 服务器告知的手机连接地址（同 Wi‑Fi） */
@@ -114,15 +122,18 @@ export function useChatEngine() {
   } | null>(null);
   const pendingJoin = useRef<{
     serverInviteCode: string;
-    groupSecret: string;
+    groupSecret?: string;
     displayName: string;
   } | null>(null);
 
-  const getKey = useCallback(async (group: LocalGroup): Promise<CryptoKey> => {
-    const cached = keyCache.current.get(group.groupId);
+  const getKey = useCallback(async (group: LocalGroup, version = group.keyVersion || 1): Promise<CryptoKey> => {
+    const cacheId = `${group.groupId}:${version}`;
+    const cached = keyCache.current.get(cacheId);
     if (cached) return cached;
-    const key = await importKeyFromString(group.keyJwk);
-    keyCache.current.set(group.groupId, key);
+    const keyJwk = group.keyJwks?.[String(version)] || (version === 1 ? group.keyJwk : undefined);
+    if (!keyJwk) throw new Error(`missing_key_version:${version}`);
+    const key = await importKeyFromString(keyJwk);
+    keyCache.current.set(cacheId, key);
     return key;
   }, []);
 
@@ -141,7 +152,8 @@ export function useChatEngine() {
   const decryptIncoming = useCallback(
     async (group: LocalGroup, m: IncomingMessage): Promise<ChatMessage> => {
       try {
-        const key = await getKey(group);
+        const keyVersion = m.key_version || 1;
+        const key = await getKey(group, keyVersion);
         const plain = await decryptText(key, m.ciphertext, m.iv);
         const opened = await openEnvelope(plain, m.group_id);
 
@@ -209,14 +221,16 @@ export function useChatEngine() {
           isMine: senderDeviceId === deviceId || m.sender_device_id === deviceId,
           trust: badge,
         };
-      } catch {
+      } catch (error) {
+        const keyVersion = m.key_version || 1;
+        const missing = error instanceof Error && error.message === `missing_key_version:${keyVersion}`;
         return {
           id: m.id,
           groupId: m.group_id,
           senderDeviceId: m.sender_device_id,
           senderName: m.sender_name,
           msgType: m.msg_type,
-          text: "[解密失败：密钥不匹配或消息已损坏]",
+          text: missing ? `[无法解密（密钥版本 ${keyVersion} 缺失）]` : "[解密失败：密钥不匹配或消息已损坏]",
           ts: m.ts,
           isMine: m.sender_device_id === deviceId,
           decryptError: true,
@@ -279,13 +293,15 @@ export function useChatEngine() {
         name: payload.name,
         displayName: pending?.displayName || "管理员",
         isAdmin: true,
-        adminToken: payload.admin_token,
-        keyJwk,
+      adminToken: payload.admin_token,
+      keyJwk,
+      keyVersion: 1,
+      keyJwks: { "1": keyJwk },
         groupSecret: secret,
         lastKnownInviteCode: payload.invite_code,
       };
       saveLocalGroup(localGroup);
-      keyCache.current.set(payload.group_id, key);
+      keyCache.current.set(`${payload.group_id}:1`, key);
       setGroups(getLocalGroups());
       setActiveGroupId(payload.group_id);
       setMessages((prev) => ({ ...prev, [payload.group_id]: prev[payload.group_id] || [] }));
@@ -295,19 +311,22 @@ export function useChatEngine() {
       const pending = pendingJoin.current;
       pendingJoin.current = null;
       if (!pending) return;
-      const key = await deriveGroupKey(pending.groupSecret, payload.group_id);
-      const keyJwk = await exportKeyToString(key);
+      const hasLegacySecret = !!pending.groupSecret;
+      const key = hasLegacySecret ? await deriveGroupKey(pending.groupSecret!, payload.group_id) : null;
+      const keyJwk = key ? await exportKeyToString(key) : "";
       const localGroup: LocalGroup = {
         groupId: payload.group_id,
         name: payload.name,
         displayName: pending.displayName,
         isAdmin: false,
         keyJwk,
+        keyVersion: 1,
+        keyJwks: key ? { "1": keyJwk } : {},
         groupSecret: pending.groupSecret,
         lastKnownInviteCode: pending.serverInviteCode,
       };
       saveLocalGroup(localGroup);
-      keyCache.current.set(payload.group_id, key);
+      if (key) keyCache.current.set(`${payload.group_id}:1`, key);
       setGroups(getLocalGroups());
       setActiveGroupId(payload.group_id);
     });
@@ -372,14 +391,55 @@ export function useChatEngine() {
       setGroups(getLocalGroups());
     });
 
+    const sendCurrentKey = async (group: LocalGroup, targets: GroupMember[], version = group.keyVersion || 1) => {
+      const secret = group.groupSecret;
+      if (!secret) return;
+      const identity = await getOrCreateDeviceIdentity();
+      for (const target of targets) {
+        if (target.deviceId === deviceId || !target.ecdhPub) continue;
+        const wrapKey = await deriveSharedWrapKey(identity.ecdhPrivateKey, target.ecdhPub);
+        const wrapped = await wrapGroupSecret(secret, wrapKey);
+        wsClient.deliverKey({ groupId: group.groupId, deviceId, targetDeviceId: target.deviceId, keyVersion: version, wrappedBlob: JSON.stringify(wrapped) });
+      }
+    };
+
+    const rotateAndDistribute = async (group: LocalGroup, members: GroupMember[]) => {
+      const nextVersion = (group.keyVersion || 1) + 1;
+      const result = await rotateGroupKey(group.groupId, members.filter((m) => m.deviceId !== deviceId));
+      const key = await deriveGroupKey(result.newSecret, group.groupId);
+      const keyJwk = await exportKeyToString(key);
+      const keyJwks = { ...(group.keyJwks || { "1": group.keyJwk }), [String(nextVersion)]: keyJwk };
+      updateLocalGroup(group.groupId, { groupSecret: result.newSecret, keyVersion: nextVersion, keyJwk, keyJwks });
+      keyCache.current.set(`${group.groupId}:${nextVersion}`, key);
+      setGroups(getLocalGroups());
+      for (const delivery of result.deliveries) {
+        wsClient.deliverKey({ groupId: group.groupId, deviceId, targetDeviceId: delivery.target_device_id, keyVersion: nextVersion, wrappedBlob: delivery.wrapped_blob });
+      }
+    };
+
     const offMembers = wsClient.on("members", (payload) => {
+      const members = mapServerMembers(payload.members || []);
+      memberRegistry.current[payload.group_id] = members;
       setMembersByGroup((prev) => ({
         ...prev,
-        [payload.group_id]: mapServerMembers(payload.members || []),
+        [payload.group_id]: members,
       }));
+      const group = getLocalGroups().find((g) => g.groupId === payload.group_id);
+      const previous = seenMembers.current[payload.group_id];
+      const now = new Set(members.map((m) => m.deviceId));
+      seenMembers.current[payload.group_id] = now;
+      if (!group?.isAdmin) return;
+      if (pendingRotations.current.delete(payload.group_id)) {
+        void rotateAndDistribute(group, members).catch(() => setErrorMsg("群密钥轮换失败，请在管理面板重试"));
+      } else if (previous) {
+        const additions = members.filter((m) => !previous.has(m.deviceId));
+        if (additions.length) void sendCurrentKey(group, additions).catch(() => setErrorMsg("无法向新成员下发群密钥"));
+      }
     });
 
     const offMemberKicked = wsClient.on("member_kicked", (payload) => {
+      const group = getLocalGroups().find((g) => g.groupId === payload.group_id);
+      if (group?.isAdmin) pendingRotations.current.add(payload.group_id);
       // 列表随后会收到 members 广播；此处兜底
       setMembersByGroup((prev) => {
         const list = prev[payload.group_id];
@@ -389,6 +449,33 @@ export function useChatEngine() {
           [payload.group_id]: list.filter((m) => m.deviceId !== payload.target_device_id),
         };
       });
+    });
+
+    const offMemberLeft = wsClient.on("member_left", (payload) => {
+      const group = getLocalGroups().find((g) => g.groupId === payload.group_id);
+      if (group?.isAdmin) pendingRotations.current.add(payload.group_id);
+    });
+
+    const offKeyDelivery = wsClient.on("key_delivery", async (payload) => {
+      const group = getLocalGroups().find((g) => g.groupId === payload.group_id);
+      if (!group) return;
+      try {
+        const admin = (memberRegistry.current[payload.group_id] || []).find((m) => m.deviceId === payload.from_device_id && m.isAdmin);
+        if (!admin?.ecdhPub) throw new Error("untrusted_key_sender");
+        const identity = await getOrCreateDeviceIdentity();
+        const secret = await unwrapGroupSecret(JSON.parse(payload.wrapped_blob), await deriveSharedWrapKey(identity.ecdhPrivateKey, admin.ecdhPub));
+        const isHistoricalJwk = secret.startsWith("jwk:");
+        const keyJwk = isHistoricalJwk ? secret.slice(4) : await exportKeyToString(await deriveGroupKey(secret, payload.group_id));
+        const key = await importKeyFromString(keyJwk);
+        const keyJwks = { ...(group.keyJwks || (group.keyJwk ? { "1": group.keyJwk } : {})), [String(payload.key_version)]: keyJwk };
+        const isCurrent = payload.key_version >= (group.keyVersion || 1);
+        updateLocalGroup(payload.group_id, { keyJwks, ...(isCurrent && !isHistoricalJwk ? { keyVersion: payload.key_version, keyJwk, groupSecret: secret } : {}) });
+        keyCache.current.set(`${payload.group_id}:${payload.key_version}`, key);
+        setGroups(getLocalGroups());
+        wsClient.ackKeyDelivery(payload.group_id, deviceId, payload.delivery_id);
+      } catch {
+        setErrorMsg("收到的群密钥无法验证或解密");
+      }
     });
 
     const offKicked = wsClient.on("kicked", (payload) => {
@@ -427,6 +514,15 @@ export function useChatEngine() {
       setTimeout(() => setErrorMsg(null), 4500);
     });
 
+    const offNotice = wsClient.on("daily_notice", (payload) => {
+      setDailyNotice(payload);
+      try { localStorage.setItem("sic_daily_notice", JSON.stringify(payload)); } catch { /* ignore */ }
+    });
+    const offMaintenance = wsClient.on("maintenance", (payload) => setMaintenance(payload.enabled));
+    try {
+      const cached = localStorage.getItem("sic_daily_notice");
+      if (cached) setDailyNotice(JSON.parse(cached));
+    } catch { /* ignore */ }
     void wsClient.reconnectNow();
 
     return () => {
@@ -441,8 +537,12 @@ export function useChatEngine() {
       offCodeRegen();
       offMembers();
       offMemberKicked();
+      offMemberLeft();
+      offKeyDelivery();
       offKicked();
       offError();
+      offNotice();
+      offMaintenance();
     };
   }, [localMode, decryptIncoming, deviceId]);
 
@@ -464,7 +564,7 @@ export function useChatEngine() {
         lastKnownInviteCode: inviteCode,
       };
       saveLocalGroup(localGroup);
-      keyCache.current.set(groupId, key);
+      keyCache.current.set(`${groupId}:1`, key);
       saveCachedMessages(groupId, []);
       setGroups(getLocalGroups());
       setActiveGroupId(groupId);
@@ -506,11 +606,13 @@ export function useChatEngine() {
         isAdmin: true,
         adminToken: "local-demo-admin",
         keyJwk,
+        keyVersion: 1,
+        keyJwks: { "1": keyJwk },
         groupSecret: secret,
         lastKnownInviteCode: "LOCAL-DEMO",
       };
       saveLocalGroup(group);
-      keyCache.current.set(groupId, key);
+      keyCache.current.set(`${groupId}:1`, key);
     }
 
     const cached = getCachedMessages(groupId);
@@ -599,6 +701,10 @@ export function useChatEngine() {
       }
 
       if (localModeRef.current) {
+        if (!parsed.groupSecret) {
+          setErrorMsg("SIC2 邀请需要连接服务器，由管理员定向下发群密钥");
+          return false;
+        }
         // 本地：用密钥材料派生稳定 groupId
         const material = `${parsed.serverInviteCode}:${parsed.groupSecret}`;
         const enc = new TextEncoder().encode(material);
@@ -621,11 +727,13 @@ export function useChatEngine() {
           displayName: name,
           isAdmin: false,
           keyJwk,
+          keyVersion: 1,
+          keyJwks: { "1": keyJwk },
           groupSecret: parsed.groupSecret,
           lastKnownInviteCode: parsed.serverInviteCode,
         };
         saveLocalGroup(localGroup);
-        keyCache.current.set(groupId, key);
+        keyCache.current.set(`${groupId}:1`, key);
         setGroups(getLocalGroups());
         setActiveGroupId(groupId);
         setMessages((prev) => ({
@@ -724,13 +832,15 @@ export function useChatEngine() {
     async (groupId: string, text: string) => {
       const group = getLocalGroups().find((g) => g.groupId === groupId);
       if (!group || !text.trim()) return;
-      const key = await getKey(group);
+      const keyVersion = group.keyVersion || 1;
+      const key = await getKey(group, keyVersion);
       const sealed = await sealEnvelope({
         kind: "text",
         body: text,
         senderName: group.displayName,
         deviceId,
         groupId,
+        keyVersion,
       });
       const { ciphertext, iv } = await encryptText(key, sealed);
 
@@ -768,6 +878,7 @@ export function useChatEngine() {
         ciphertext,
         iv,
         senderName: "e2ee",
+        keyVersion,
       });
     },
     [deviceId, getKey, appendMessage]
@@ -814,8 +925,10 @@ export function useChatEngine() {
         senderName: group.displayName,
         deviceId,
         groupId,
+        keyVersion: group.keyVersion || 1,
       });
-      const key = await getKey(group);
+      const keyVersion = group.keyVersion || 1;
+      const key = await getKey(group, keyVersion);
       const { ciphertext, iv } = await encryptText(key, sealed);
 
       report(85, "send", localModeRef.current ? "写入本地会话…" : "发送密文…");
@@ -855,6 +968,7 @@ export function useChatEngine() {
         ciphertext,
         iv,
         senderName: "e2ee",
+        keyVersion,
       });
       report(100, "done", "已发送");
     },
@@ -898,10 +1012,43 @@ export function useChatEngine() {
     wsClient.regenerateCode(groupId, group.adminToken);
   }, []);
 
+  const revokeInvite = useCallback((groupId: string) => { const g = getLocalGroups().find(x => x.groupId === groupId); if (g?.adminToken && !localModeRef.current) wsClient.revokeInvite(groupId, g.adminToken); }, []);
+  const setInviteExpiry = useCallback((groupId: string, hours: number | null) => { const g = getLocalGroups().find(x => x.groupId === groupId); if (g?.adminToken && !localModeRef.current) wsClient.setInviteExpiry(groupId, g.adminToken, hours ? Math.floor(Date.now() / 1000) + hours * 3600 : null); }, []);
+
+  const rotateGroupKeyNow = useCallback(async (groupId: string) => {
+    const group = getLocalGroups().find((g) => g.groupId === groupId);
+    if (!group?.isAdmin || localModeRef.current) return;
+    const members = memberRegistry.current[groupId] || [];
+    const version = (group.keyVersion || 1) + 1;
+    const rotation = await rotateGroupKey(groupId, members.filter((m) => m.deviceId !== deviceId));
+    const key = await deriveGroupKey(rotation.newSecret, groupId);
+    const keyJwk = await exportKeyToString(key);
+    updateLocalGroup(groupId, { groupSecret: rotation.newSecret, keyVersion: version, keyJwk, keyJwks: { ...(group.keyJwks || { "1": group.keyJwk }), [String(version)]: keyJwk } });
+    keyCache.current.set(`${groupId}:${version}`, key);
+    setGroups(getLocalGroups());
+    rotation.deliveries.forEach((delivery) => wsClient.deliverKey({ groupId, deviceId, targetDeviceId: delivery.target_device_id, keyVersion: version, wrappedBlob: delivery.wrapped_blob }));
+  }, [deviceId]);
+
+  const shareHistoryWithMember = useCallback(async (groupId: string, targetDeviceId: string) => {
+    const group = getLocalGroups().find((g) => g.groupId === groupId);
+    const target = (memberRegistry.current[groupId] || []).find((m) => m.deviceId === targetDeviceId);
+    if (!group?.isAdmin || !target?.ecdhPub || !group.keyJwks) return;
+    const identity = await getOrCreateDeviceIdentity();
+    const wrapKey = await deriveSharedWrapKey(identity.ecdhPrivateKey, target.ecdhPub);
+    for (const [rawVersion, jwk] of Object.entries(group.keyJwks)) {
+      const version = Number(rawVersion);
+      if (version === (group.keyVersion || 1)) continue;
+      // History entries store AES keys; re-exporting a secret is avoided by wrapping the JWK JSON itself.
+      const wrapped = await wrapGroupSecret(`jwk:${jwk}`, wrapKey);
+      wsClient.deliverKey({ groupId, deviceId, targetDeviceId, keyVersion: version, wrappedBlob: JSON.stringify(wrapped) });
+    }
+  }, [deviceId]);
+
   const leaveGroup = useCallback(
     (groupId: string) => {
+      if (!localModeRef.current) wsClient.leaveGroup(groupId, deviceId);
       removeLocalGroup(groupId);
-      keyCache.current.delete(groupId);
+      for (const key of keyCache.current.keys()) if (key.startsWith(`${groupId}:`)) keyCache.current.delete(key);
       setGroups(getLocalGroups());
       setMessages((prev) => {
         const { [groupId]: _drop, ...rest } = prev;
@@ -913,7 +1060,7 @@ export function useChatEngine() {
       });
       if (activeGroupId === groupId) setActiveGroupId(null);
     },
-    [activeGroupId]
+    [activeGroupId, deviceId]
   );
 
   const refreshMembers = useCallback(
@@ -948,6 +1095,7 @@ export function useChatEngine() {
     },
     [deviceId]
   );
+  const muteMember = useCallback((groupId: string, targetDeviceId: string, muted: boolean) => { const g = getLocalGroups().find(x => x.groupId === groupId); if (g?.adminToken) wsClient.muteMember(groupId, g.adminToken, targetDeviceId, muted); }, []);
 
   const getShareInvite = useCallback((groupId: string): string => {
     const g = getLocalGroups().find((x) => x.groupId === groupId);
@@ -989,6 +1137,8 @@ export function useChatEngine() {
   }, []);
 
   const clearSecurityAlert = useCallback(() => setSecurityAlert(null), []);
+  const publishDailyNotice = useCallback((groupId: string, notice: { dailyDevotion: string; hymn: string; scripture: string }) => { const g = getLocalGroups().find(x => x.groupId === groupId); if (g?.adminToken) wsClient.publishDailyNotice(groupId, g.adminToken, notice); }, []);
+  const setMaintenanceMode = useCallback((groupId: string, enabled: boolean) => { const g = getLocalGroups().find(x => x.groupId === groupId); if (g?.adminToken) wsClient.setMaintenance(groupId, g.adminToken, enabled); }, []);
 
   return {
     deviceId,
@@ -1005,6 +1155,8 @@ export function useChatEngine() {
     localMode,
     errorMsg,
     securityAlert,
+    dailyNotice,
+    maintenance,
     clearSecurityAlert,
     createGroup,
     openDemoChat,
@@ -1014,9 +1166,16 @@ export function useChatEngine() {
     sendFile,
     simulatePeerMessage,
     regenerateCode,
+    revokeInvite,
+    setInviteExpiry,
+    publishDailyNotice,
+    setMaintenanceMode,
+    rotateGroupKeyNow,
+    shareHistoryWithMember,
     leaveGroup,
     refreshMembers,
     kickMember,
+    muteMember,
     getShareInvite,
     getGroupSecret,
     reconnect,

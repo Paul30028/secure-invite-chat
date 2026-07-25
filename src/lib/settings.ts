@@ -4,12 +4,12 @@
  */
 
 import {
-  DEFAULT_INVITE_WS_URL,
   DEFAULT_WS_URL,
+  DEFAULT_INVITE_WS_URL,
+  FALLBACK_WS_URL,
   FEATURES,
 } from "../config/appConfig";
 
-const WS_KEY = "sic_ws_url";
 const INVITE_RELAY_KEY = "sic_invite_relay_url";
 const LOCAL_MODE_KEY = "sic_local_mode_v2";
 /** 桌面连上服务器后缓存的「给手机用的地址」 */
@@ -130,21 +130,15 @@ export function describeRelayUrl(url: string) {
   };
 }
 
-export function getWsUrl(): string {
-  try {
-    return localStorage.getItem(WS_KEY) || builtInDefault();
-  } catch {
-    return builtInDefault();
-  }
-}
+export function getWsUrl(): string { return builtInDefault(); }
 
-export function setWsUrl(url: string) {
-  localStorage.setItem(WS_KEY, normalizeWsUrl(url));
-}
+/** Retained for old invite parsing; normal UI never persists endpoint overrides. */
+export function setWsUrl(_url: string) {}
 
 export function getDefaultWsUrl(): string {
   return builtInDefault();
 }
+export function getFallbackWsUrl(): string { return FALLBACK_WS_URL; }
 
 /**
  * 写入邀请码的服务器（可选）

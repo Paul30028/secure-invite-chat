@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { useChatEngine } from "./hooks/useChatEngine";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
+import { usePrivateData } from "./hooks/usePrivateData";
+import { rememberMembers } from "./lib/privateStore";
 import { Sidebar } from "./components/Sidebar";
 import { ChatWindow } from "./components/ChatWindow";
 import { CreateGroupModal } from "./components/CreateGroupModal";
@@ -12,262 +14,33 @@ import { Onboarding } from "./components/Onboarding";
 import { ConnectionBanner } from "./components/ConnectionBanner";
 import { AdminHome } from "./components/AdminHome";
 import { MembersPanel } from "./components/MembersPanel";
-import { MatrixDemoModal } from "./components/MatrixDemoModal";
-import { PublicNoticeModal } from "./components/PublicNoticeModal";
-import { CallOverlay } from "./components/CallOverlay";
-import { useCallEngine } from "./hooks/useCallEngine";
-import { CallPeerPicker } from "./components/CallPeerPicker";
+import { SectionNav, type AppSection } from "./components/SectionNav";
+import { ContactsPage } from "./components/ContactsPage";
+import { InvitesPage } from "./components/InvitesPage";
+import { MePage } from "./components/MePage";
+import { DailyNoticeBar } from "./components/DailyNoticeBar";
 
-function App() {
-  const {
-    deviceId,
-    groups,
-    activeGroupId,
-    setActiveGroupId,
-    messages,
-    membersByGroup,
-    phoneHints,
-    status,
-    errorMsg,
-    securityAlert,
-    clearSecurityAlert,
-    createGroup,
-    openDemoChat,
-    joinGroup,
-    sendMessage,
-    sendFile,
-    simulatePeerMessage,
-    regenerateCode,
-    leaveGroup,
-    refreshMembers,
-    kickMember,
-    getShareInvite,
-    getGroupSecret,
-    reconnect,
-    applyModeFromSettings,
-    localMode,
-  } = useChatEngine();
-
-  const callEngine = useCallEngine(deviceId);
-
-  const [showCreate, setShowCreate] = useState(false);
-  const [showJoin, setShowJoin] = useState(false);
-  const [showAdmin, setShowAdmin] = useState(false);
-  const [showMembers, setShowMembers] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showMatrixDemo, setShowMatrixDemo] = useState(false);
-  const [callPickerMode, setCallPickerMode] = useState<"audio" | "video" | null>(null);
-  // 公开公告是应用首页，用户无需先进入设置。
-  const [showPublicNotices, setShowPublicNotices] = useState(true);
-
-  const activeGroup = groups.find((g) => g.groupId === activeGroupId) || null;
-  const mobileShowSidebar = !activeGroupId;
-  const showOnboarding = groups.length === 0 && !activeGroup;
-  const activeMembers = activeGroup ? membersByGroup[activeGroup.groupId] || [] : [];
-  const callPeers = activeMembers.filter((member) => member.deviceId !== deviceId && member.online);
-
-  // 创建群后弹出邀请码（真机验收：管理端发码）
-  const prevAdminIds = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    const adminIds = new Set(groups.filter((g) => g.isAdmin).map((g) => g.groupId));
-    let newlyCreated: string | null = null;
-    for (const id of adminIds) {
-      if (!prevAdminIds.current.has(id)) {
-        newlyCreated = id;
-        break;
-      }
-    }
-    prevAdminIds.current = adminIds;
-    if (newlyCreated && activeGroupId === newlyCreated) {
-      setShowAdmin(true);
-    }
-  }, [groups, activeGroupId]);
-
-  // 进入群时拉成员列表
-  useEffect(() => {
-    if (activeGroup && !localMode) {
-      refreshMembers(activeGroup.groupId);
-    }
-  }, [activeGroup?.groupId, localMode, refreshMembers]);
-
-  const backToList = useCallback(() => setActiveGroupId(null), [setActiveGroupId]);
-
-  // Android 物理返回键：先关最上层弹窗 → 再退回群列表 → 最后才退出 App
-  // （之前反复出现"进入管理员界面后退不出"，根因是从未接管过硬件返回键）
-  useAndroidBackButton({
-    closers: [
-      [showSettings, () => setShowSettings(false)],
-      [showMembers, () => setShowMembers(false)],
-      [showAdmin, () => setShowAdmin(false)],
-      [showJoin, () => setShowJoin(false)],
-      [showCreate, () => setShowCreate(false)],
-    ],
-    hasActiveGroup: !!activeGroupId,
-    onBackToList: backToList,
-  });
-
-  return (
-    <div
-      className="flex h-full min-h-[100vh] w-full overflow-hidden flex-col"
-      style={{ minHeight: "100vh", height: "100%" }}
-    >
-      <ConnectionBanner status={status} onSettings={() => setShowSettings(true)} />
-
-      <div className="flex flex-1 min-h-0">
-        {!showOnboarding && (
-          <Sidebar
-            groups={groups}
-            activeGroupId={activeGroupId}
-            onSelect={setActiveGroupId}
-            onCreate={() => setShowCreate(true)}
-            onJoin={() => setShowJoin(true)}
-            onSettings={() => setShowSettings(true)}
-            onOpenAdmin={() => setShowAdmin(true)}
-            status={status}
-            mobileOpen={mobileShowSidebar}
-          />
-        )}
-
-        {showOnboarding ? (
-          <Onboarding
-            status={status}
-            phoneHints={phoneHints}
-            onConnectedSetup={() => {
-              void reconnect();
-            }}
-            onOpenSettings={() => setShowSettings(true)}
-            onCreate={() => setShowCreate(true)}
-            onJoin={() => setShowJoin(true)}
-          />
-        ) : activeGroup ? (
-          <ChatWindow
-            group={activeGroup}
-            messages={messages[activeGroup.groupId] || []}
-            onSend={(text) => sendMessage(activeGroup.groupId, text)}
-            onSendFile={(file, onProgress) => sendFile(activeGroup.groupId, file, onProgress)}
-            onSimulatePeer={
-              localMode ? () => void simulatePeerMessage(activeGroup.groupId) : undefined
-            }
-            onOpenAdmin={() => setShowAdmin(true)}
-            onOpenMembers={() => {
-              if (!localMode) refreshMembers(activeGroup.groupId);
-              setShowMembers(true);
-            }}
-            memberCount={activeMembers.length || undefined}
-            onLeave={() => leaveGroup(activeGroup.groupId)}
-            onBack={() => setActiveGroupId(null)}
-            groupSecret={getGroupSecret(activeGroup.groupId)}
-            localMode={localMode}
-          />
-        ) : (
-          <AdminHome
-            status={status}
-            hasGroups={groups.length > 0}
-            onCreate={() => setShowCreate(true)}
-            onJoin={() => setShowJoin(true)}
-            onSettings={() => setShowSettings(true)}
-          />
-        )}
-      </div>
-
-      {showCreate && (
-        <CreateGroupModal onClose={() => setShowCreate(false)} onCreate={createGroup} />
-      )}
-      {showJoin && <JoinGroupModal onClose={() => setShowJoin(false)} onJoin={joinGroup} />}
-      {showAdmin && activeGroup && activeGroup.isAdmin && (
-        <AdminPanel
-          group={activeGroup}
-          shareInvite={getShareInvite(activeGroup.groupId)}
-          groupSecret={getGroupSecret(activeGroup.groupId)}
-          onClose={() => setShowAdmin(false)}
-          onRegenerate={() => regenerateCode(activeGroup.groupId)}
-        />
-      )}
-      {showMembers && activeGroup && (
-        <MembersPanel
-          group={activeGroup}
-          members={activeMembers}
-          myDeviceId={deviceId}
-          onClose={() => setShowMembers(false)}
-          onRefresh={() => refreshMembers(activeGroup.groupId)}
-          onKick={(id) => kickMember(activeGroup.groupId, id)}
-        />
-      )}
-      {showSettings && (
-        <SettingsModal
-          onClose={() => setShowSettings(false)}
-          onOpenPublicNotices={() => {
-            setShowSettings(false);
-            setShowPublicNotices(true);
-          }}
-          onOpenMatrixDemo={() => {
-            setShowSettings(false);
-            setShowMatrixDemo(true);
-          }}
-          onSaved={() => {
-            applyModeFromSettings();
-            void reconnect();
-          }}
-        />
-      )}
-      {showMatrixDemo && <MatrixDemoModal onClose={() => setShowMatrixDemo(false)} />}
-      {showPublicNotices && (
-        <PublicNoticeModal
-          onClose={() => setShowPublicNotices(false)}
-          onEnterChat={() => void openDemoChat()}
-        />
-      )}
-
-      {callPickerMode && activeGroup && (
-        <CallPeerPicker
-          mode={callPickerMode}
-          peers={callPeers}
-          onClose={() => setCallPickerMode(null)}
-          onSelect={(peer) => {
-            const mode = callPickerMode;
-            setCallPickerMode(null);
-            void callEngine.startCall(activeGroup.groupId, { deviceId: peer.deviceId, displayName: peer.displayName }, mode, activeGroup.displayName);
-          }}
-        />
-      )}
-
-      {callEngine.call && (
-        <CallOverlay
-          call={callEngine.call}
-          localStream={callEngine.localStream}
-          remoteStream={callEngine.remoteStream}
-          onAccept={() => void callEngine.acceptCall()}
-          onReject={callEngine.rejectCall}
-          onEnd={callEngine.endCall}
-          onToggleAudio={callEngine.toggleAudio}
-          onToggleVideo={callEngine.toggleVideo}
-          onSwitchCamera={() => void callEngine.switchCamera()}
-          audioMuted={callEngine.audioMuted}
-          videoPaused={callEngine.videoPaused}
-        />
-      )}
-
-      {securityAlert && (
-        <div className="fixed top-14 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md bg-red-900/95 border border-red-500 text-white text-sm px-4 py-3 rounded-lg shadow-xl z-[70]">
-          <div className="font-semibold mb-1">安全警报</div>
-          <p className="text-xs leading-relaxed mb-2">{securityAlert}</p>
-          <button
-            className="text-xs underline text-red-200"
-            onClick={clearSecurityAlert}
-            type="button"
-          >
-            已知晓
-          </button>
-        </div>
-      )}
-
-      {errorMsg && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm bg-red-600/90 text-white text-sm px-4 py-2 rounded-lg shadow-xl z-[60]">
-          {errorMsg}
-        </div>
-      )}
-    </div>
-  );
+export default function App() {
+  const engine = useChatEngine(); const local = usePrivateData();
+  const [section, setSection] = useState<AppSection>("messages"); const [showCreate, setShowCreate] = useState(false); const [showJoin, setShowJoin] = useState(false); const [showAdmin, setShowAdmin] = useState(false); const [showMembers, setShowMembers] = useState(false); const [showSettings, setShowSettings] = useState(false);
+  const active = engine.groups.find(g => g.groupId === engine.activeGroupId) || null; const members = active ? engine.membersByGroup[active.groupId] || [] : [];
+  const onboarding = engine.groups.length === 0 && !active;
+  useEffect(() => { Object.entries(engine.membersByGroup).forEach(([id, list]) => void rememberMembers(id, engine.deviceId, list).then(local.refresh)); }, [engine.membersByGroup, engine.deviceId, local.refresh]);
+  const back = useCallback(() => { engine.setActiveGroupId(null); setSection("messages"); }, [engine]);
+  useAndroidBackButton({ closers: [[showSettings, () => setShowSettings(false)], [showMembers, () => setShowMembers(false)], [showAdmin, () => setShowAdmin(false)], [showJoin, () => setShowJoin(false)], [showCreate, () => setShowCreate(false)]], hasActiveGroup: !!engine.activeGroupId || section !== "messages", onBackToList: back });
+  const prevAdmins = useRef(new Set<string>());
+  useEffect(() => { const now = new Set(engine.groups.filter(g => g.isAdmin).map(g => g.groupId)); if ([...now].some(id => !prevAdmins.current.has(id)) && section === "messages") setShowAdmin(true); prevAdmins.current = now; }, [engine.groups, section]);
+  const content = onboarding ? <Onboarding status={engine.status} phoneHints={engine.phoneHints} onConnectedSetup={() => void engine.reconnect()} onOpenSettings={() => setShowSettings(true)} onCreate={() => setShowCreate(true)} onJoin={() => setShowJoin(true)} />
+    : section === "contacts" ? <ContactsPage contacts={Object.values(local.data?.contacts || {})} onUpdate={(id, patch) => void local.update(d => ({ ...d, contacts: { ...d.contacts, [id]: { ...d.contacts[id]!, ...patch } } }))} />
+    : section === "invites" ? <InvitesPage pending={local.data?.pendingInvites || []} groups={engine.groups} onCreate={() => setShowCreate(true)} onOpenAdmin={g => { engine.setActiveGroupId(g.groupId); setShowAdmin(true); }} onStage={raw => void local.update(d => ({ ...d, pendingInvites: [...d.pendingInvites, { id: crypto.randomUUID(), raw, createdAt: Date.now() }] }))} onAccept={raw => { setShowJoin(true); void local.update(d => ({ ...d, pendingInvites: d.pendingInvites.filter(x => x.raw !== raw) })); }} onRemove={id => void local.update(d => ({ ...d, pendingInvites: d.pendingInvites.filter(x => x.id !== id) }))} />
+    : section === "me" && local.data ? <MePage deviceId={engine.deviceId} data={local.data} onSettings={() => setShowSettings(true)} onRestore={data => void local.update(() => data)} adminGroups={engine.groups.filter(g => g.isAdmin)} onOpenAdmin={g => { engine.setActiveGroupId(g.groupId); setShowAdmin(true); }} />
+    : active ? <ChatWindow group={active} messages={engine.messages[active.groupId] || []} onSend={text => engine.sendMessage(active.groupId, text)} onSendFile={(file, progress) => engine.sendFile(active.groupId, file, progress)} onSimulatePeer={engine.localMode ? () => void engine.simulatePeerMessage(active.groupId) : undefined} onOpenAdmin={() => setShowAdmin(true)} onOpenMembers={() => { engine.refreshMembers(active.groupId); setShowMembers(true); }} memberCount={members.length} onLeave={() => engine.leaveGroup(active.groupId)} onBack={back} groupSecret={engine.getGroupSecret(active.groupId)} localMode={engine.localMode} />
+    : <AdminHome status={engine.status} hasGroups={engine.groups.length > 0} onCreate={() => setShowCreate(true)} onJoin={() => setShowJoin(true)} onSettings={() => setShowSettings(true)} />;
+  return <div className="flex h-full min-h-[100vh] w-full overflow-hidden flex-col"><ConnectionBanner status={engine.status} onSettings={() => void engine.reconnect()} /><DailyNoticeBar notice={engine.dailyNotice} />{engine.maintenance && <div className="bg-red-600 text-white text-xs px-4 py-2 text-center">系统维护中，非管理员暂时无法收发消息。</div>}<div className="flex flex-1 min-h-0"><SectionNav active={section} onChange={setSection} desktop />{section === "messages" && !onboarding && <Sidebar groups={engine.groups} activeGroupId={engine.activeGroupId} onSelect={engine.setActiveGroupId} onCreate={() => setShowCreate(true)} onJoin={() => setShowJoin(true)} onSettings={() => setShowSettings(true)} onOpenAdmin={() => setShowAdmin(true)} status={engine.status} mobileOpen={!engine.activeGroupId} preferences={local.data?.conversationPrefs} onConversationAction={(id, action) => void local.update(d => ({ ...d, conversationPrefs: { ...d.conversationPrefs, [id]: { ...d.conversationPrefs[id], [action === "pin" ? "pinned" : action === "mute" ? "muted" : action === "unread" ? "unread" : "hidden"]: !d.conversationPrefs[id]?.[action === "pin" ? "pinned" : action === "mute" ? "muted" : action === "unread" ? "unread" : "hidden"] } } }))} />}{content}</div>{!onboarding && <SectionNav active={section} onChange={setSection} />}
+    {showCreate && <CreateGroupModal onClose={() => setShowCreate(false)} onCreate={engine.createGroup} />}{showJoin && <JoinGroupModal onClose={() => setShowJoin(false)} onJoin={engine.joinGroup} />}
+    {showAdmin && active?.isAdmin && <AdminPanel group={active} shareInvite={engine.getShareInvite(active.groupId)} groupSecret={engine.getGroupSecret(active.groupId)} onClose={() => setShowAdmin(false)} onRegenerate={() => engine.regenerateCode(active.groupId)} onRotateKey={() => void engine.rotateGroupKeyNow(active.groupId)} onRevoke={() => engine.revokeInvite(active.groupId)} onSetExpiry={hours => engine.setInviteExpiry(active.groupId, hours)} onPublishNotice={notice => engine.publishDailyNotice(active.groupId, notice)} onMaintenance={enabled => engine.setMaintenanceMode(active.groupId, enabled)} />}
+    {showMembers && active && <MembersPanel group={active} members={members} myDeviceId={engine.deviceId} onClose={() => setShowMembers(false)} onRefresh={() => engine.refreshMembers(active.groupId)} onKick={id => engine.kickMember(active.groupId, id)} onMute={id => engine.muteMember(active.groupId, id, true)} onShareHistory={id => void engine.shareHistoryWithMember(active.groupId, id)} />}
+    {showSettings && <SettingsModal onClose={() => setShowSettings(false)} onSaved={() => void engine.reconnect()} />}
+    {engine.errorMsg && <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm bg-red-600/90 text-white text-sm px-4 py-2 rounded-lg shadow-xl z-[60]">{engine.errorMsg}</div>}
+  </div>;
 }
-
-export default App;

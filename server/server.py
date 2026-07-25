@@ -25,10 +25,14 @@ import secrets as secrets_mod
 import websockets
 from websockets.asyncio.server import serve
 
-import auth
-import db
-import protocol
-from rate_limit import TokenBucket
+try:  # package import for tests; direct import for `python server.py`
+    from . import auth, db, protocol
+    from .rate_limit import TokenBucket
+except ImportError:
+    import auth
+    import db
+    import protocol
+    from rate_limit import TokenBucket
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("server")
@@ -166,6 +170,7 @@ def members_payload(group_id: str) -> dict:
                 "display_name": m["display_name"],
                 "joined_at": m["joined_at"],
                 "is_admin": bool(m.get("is_admin")),
+                "ecdh_pub": m.get("ecdh_pub"),
                 "online": m["device_id"] in online,
             }
         )
@@ -196,8 +201,38 @@ async def send_to_device(group_id: str, device_id: str, payload: dict):
             pass
 
 
+async def deliver_pending_keys(group_id: str, device_id: str):
+    """Forward stored opaque blobs. The relay deliberately never parses wrapped_blob."""
+    for delivery in db.list_pending_key_deliveries(group_id, device_id):
+        await send_to_device(group_id, device_id, key_delivery_payload(delivery))
+
+
+def key_delivery_payload(delivery: dict) -> dict:
+    """Map delivery metadata only; wrapped_blob is intentionally copied, never decoded."""
+    return {
+        "type": "key_delivery", "delivery_id": delivery["id"], "group_id": delivery["group_id"],
+        "from_device_id": delivery["sender_device_id"], "key_version": delivery["key_version"],
+        "wrapped_blob": delivery["wrapped_blob"],
+    }
+
+
 async def send_error(ws, message: str):
     await ws.send(json.dumps({"type": "error", "message": message}))
+
+
+async def broadcast_app(payload: dict):
+    seen = set()
+    for conns in GROUP_CONNECTIONS.values():
+        for ws, _ in conns:
+            if ws not in seen:
+                seen.add(ws)
+                try: await ws.send(json.dumps(payload))
+                except websockets.ConnectionClosed: pass
+
+
+def valid_admin(msg: dict):
+    group_id = msg.get("group_id"); token = msg.get("admin_token"); group = db.find_group_by_id(group_id) if group_id else None
+    return group if group and secrets_mod.compare_digest(group["admin_token"], token or "") else None
 
 
 async def handle_connection(ws):
@@ -207,6 +242,8 @@ async def handle_connection(ws):
 
         CONNECTION_CHALLENGES[ws] = auth.new_challenge()
         await ws.send(json.dumps({"type": "auth_challenge", "challenge": CONNECTION_CHALLENGES[ws]}))
+        await ws.send(json.dumps({"type": "daily_notice", **db.get_daily_notice()}))
+        await ws.send(json.dumps({"type": "maintenance", "enabled": db.is_maintenance()}))
 
         try:
             if not cfg.ADVERTISE_LAN_HINTS:
@@ -241,6 +278,19 @@ async def handle_connection(ws):
                 await send_error(ws, "invalid_type")
                 continue
 
+            if mtype == "get_daily_notice":
+                await ws.send(json.dumps({"type": "daily_notice", **db.get_daily_notice()})); continue
+
+            if mtype == "publish_daily_notice":
+                if not valid_admin(msg): await send_error(ws, "not_authorized"); continue
+                notice = {field: (msg.get(field) or "").strip() for field in ("dailyDevotion", "hymn", "scripture")}
+                if not notice["scripture"]: await send_error(ws, "missing_fields"); continue
+                db.save_daily_notice(notice); await broadcast_app({"type": "daily_notice", **notice}); continue
+
+            if mtype == "set_maintenance":
+                if not valid_admin(msg): await send_error(ws, "not_authorized"); continue
+                enabled = msg.get("enabled") is True; db.set_maintenance(enabled); await broadcast_app({"type": "maintenance", "enabled": enabled}); continue
+
             if mtype == "create_group":
                 if not action_rate_allowed(ws):
                     await send_error(ws, "rate_limited")
@@ -249,6 +299,7 @@ async def handle_connection(ws):
                 device_id = msg.get("device_id")
                 display_name = (msg.get("display_name") or "").strip() or "Admin"
                 identity_pub = msg.get("identity_pub")
+                ecdh_pub = msg.get("ecdh_pub")
                 if not name or not device_id:
                     await send_error(ws, "name_and_device_id_required")
                     continue
@@ -259,7 +310,8 @@ async def handle_connection(ws):
                     await send_error(ws, "identity_pub_required")
                     continue
                 result = db.create_group(
-                    name, device_id, display_name, identity_pub if isinstance(identity_pub, str) else None
+                    name, device_id, display_name, identity_pub if isinstance(identity_pub, str) else None,
+                    ecdh_pub if isinstance(ecdh_pub, str) else None,
                 )
                 await register(result["group_id"], ws, device_id)
                 await ws.send(json.dumps({"type": "group_created", **result}))
@@ -274,6 +326,7 @@ async def handle_connection(ws):
                 device_id = msg.get("device_id")
                 display_name = (msg.get("display_name") or "").strip() or "成员"
                 identity_pub = msg.get("identity_pub")
+                ecdh_pub = msg.get("ecdh_pub")
                 if not invite_code or not device_id:
                     await send_error(ws, "invite_code_and_device_id_required")
                     continue
@@ -287,6 +340,7 @@ async def handle_connection(ws):
                 err = db.add_member(
                     group["id"], device_id, display_name,
                     identity_pub if isinstance(identity_pub, str) else None,
+                    ecdh_pub if isinstance(ecdh_pub, str) else None,
                 )
                 if err:
                     await send_error(ws, err)
@@ -298,6 +352,7 @@ async def handle_connection(ws):
                     )
                 )
                 await ws.send(json.dumps(history_payload(group["id"])))
+                await deliver_pending_keys(group["id"], device_id)
                 # 全员刷新成员列表
                 await broadcast(group["id"], members_payload(group["id"]))
                 log.info(f"设备 {device_id} 加入群组 {group['id']}")
@@ -317,6 +372,7 @@ async def handle_connection(ws):
                 await ws.send(json.dumps({"type": "resumed", "group_id": group_id}))
                 await ws.send(json.dumps(history_payload(group_id)))
                 await ws.send(json.dumps(members_payload(group_id)))
+                await deliver_pending_keys(group_id, device_id)
                 # 在线状态变化通知他人
                 await broadcast(group_id, members_payload(group_id))
                 log.info(f"设备 {device_id} 恢复群组 {group_id}")
@@ -398,6 +454,61 @@ async def handle_connection(ws):
                 await broadcast(group_id, members_payload(group_id))
                 log.info(f"群 {group_id} 踢出设备 {target}")
 
+            elif mtype == "mute_member":
+                group_id = msg.get("group_id"); target = msg.get("target_device_id")
+                if not valid_admin(msg) or not target: await send_error(ws, "not_authorized"); continue
+                if db.is_admin_member(group_id, target): await send_error(ws, "cannot_mute_admin"); continue
+                db.set_member_muted(group_id, target, msg.get("muted") is True)
+                await broadcast(group_id, {"type": "member_muted", "group_id": group_id, "target_device_id": target, "muted": msg.get("muted") is True})
+
+            elif mtype == "leave_group":
+                group_id = msg.get("group_id")
+                device_id = msg.get("device_id")
+                if not group_id or not device_id or not db.is_member(group_id, device_id):
+                    await send_error(ws, "not_a_member")
+                    continue
+                if not db.invite_is_active(group):
+                    await send_error(ws, "invite_expired_or_revoked")
+                    continue
+                if db.is_admin_member(group_id, device_id):
+                    await send_error(ws, "admin_cannot_leave")
+                    continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
+                    await send_error(ws, "not_authenticated")
+                    continue
+                db.remove_member(group_id, device_id)
+                await unregister_device_from_group(group_id, device_id)
+                await broadcast(group_id, {"type": "member_left", "group_id": group_id, "target_device_id": device_id})
+                await broadcast(group_id, members_payload(group_id))
+
+            elif mtype == "deliver_key":
+                group_id = msg.get("group_id")
+                sender = msg.get("device_id")
+                target = msg.get("target_device_id")
+                blob = msg.get("wrapped_blob")
+                version = msg.get("key_version")
+                if not all(isinstance(value, str) and value for value in (group_id, sender, target, blob)) or not isinstance(version, int):
+                    await send_error(ws, "missing_fields")
+                    continue
+                # Only the fixed administrator device coordinates epochs; the blob itself stays opaque.
+                if not db.is_member(group_id, sender) or not db.is_member(group_id, target) or not db.is_admin_member(group_id, sender):
+                    await send_error(ws, "not_authorized")
+                    continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, sender):
+                    await send_error(ws, "not_authenticated")
+                    continue
+                delivery = db.save_pending_key_delivery(group_id, target, sender, version, blob)
+                await send_to_device(group_id, target, key_delivery_payload(delivery))
+
+            elif mtype == "ack_key_delivery":
+                group_id = msg.get("group_id")
+                device_id = msg.get("device_id")
+                delivery_id = msg.get("delivery_id")
+                if not all(isinstance(value, str) and value for value in (group_id, device_id, delivery_id)) or not db.is_member(group_id, device_id):
+                    await send_error(ws, "not_a_member")
+                    continue
+                db.delete_pending_key_delivery(delivery_id, device_id)
+
             elif mtype == "call_signal":
                 group_id = msg.get("group_id")
                 device_id = msg.get("device_id")
@@ -460,8 +571,15 @@ async def handle_connection(ws):
                 ciphertext = msg.get("ciphertext")
                 iv = msg.get("iv")
                 msg_type = msg.get("msg_type", "text")
+                key_version = msg.get("key_version", 1)
                 sender_name = msg.get("sender_name") or "未知"
 
+                if db.is_maintenance() and not db.is_admin_member(group_id, device_id):
+                    await send_error(ws, "maintenance_mode")
+                    continue
+                if db.is_member_muted(group_id, device_id):
+                    await send_error(ws, "member_muted")
+                    continue
                 if not (group_id and device_id and ciphertext and iv):
                     await send_error(ws, "missing_fields")
                     continue
@@ -476,7 +594,7 @@ async def handle_connection(ws):
                     continue
 
                 saved = db.save_message(
-                    group_id, device_id, sender_name, msg_type, ciphertext, iv
+                    group_id, device_id, sender_name, msg_type, ciphertext, iv, key_version
                 )
                 await broadcast(group_id, {"type": "message", **saved})
 
@@ -504,6 +622,23 @@ async def handle_connection(ws):
                     )
                 )
                 log.info(f"群组 {group_id} 邀请码已重新生成")
+
+            elif mtype == "set_invite_expiry":
+                group_id = msg.get("group_id"); admin_token = msg.get("admin_token"); group = db.find_group_by_id(group_id) if group_id else None
+                if not group or not secrets_mod.compare_digest(group["admin_token"], admin_token or ""):
+                    await send_error(ws, "not_authorized"); continue
+                expires_at = msg.get("expires_at")
+                if expires_at is not None and (not isinstance(expires_at, int) or expires_at < 0):
+                    await send_error(ws, "invalid_field_type"); continue
+                db.set_invite_expiry(group_id, expires_at)
+                await ws.send(json.dumps({"type": "invite_settings", "group_id": group_id, "expires_at": expires_at, "revoked": False}))
+
+            elif mtype == "revoke_invite":
+                group_id = msg.get("group_id"); admin_token = msg.get("admin_token"); group = db.find_group_by_id(group_id) if group_id else None
+                if not group or not secrets_mod.compare_digest(group["admin_token"], admin_token or ""):
+                    await send_error(ws, "not_authorized"); continue
+                db.revoke_invite(group_id)
+                await ws.send(json.dumps({"type": "invite_settings", "group_id": group_id, "revoked": True}))
 
             else:
                 await send_error(ws, f"unknown_type:{mtype}")

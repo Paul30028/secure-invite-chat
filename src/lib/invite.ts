@@ -12,12 +12,14 @@ import { generateRandomSecret } from "./random";
 
 export type ParsedInvite = {
   serverInviteCode: string;
-  groupSecret: string;
+  /** SIC2 deliberately has no group secret. SIC1 is legacy-only. */
+  groupSecret?: string;
   legacy: boolean;
   relayUrl?: string;
 };
 
-const PREFIX = "SIC1.";
+const PREFIX = "SIC2.";
+const LEGACY_PREFIX = "SIC1.";
 
 /** 每次建群调用：新的随机群密钥材料（绝不应固定） */
 export function generateGroupSecret(): string {
@@ -30,10 +32,10 @@ export function generateGroupSecret(): string {
  */
 export function buildShareInvite(
   serverInviteCode: string,
-  groupSecret: string,
+  _groupSecret?: string,
   relayUrl?: string | null
 ): string {
-  let s = `${PREFIX}${serverInviteCode}.${groupSecret}`;
+  let s = `${PREFIX}${serverInviteCode}`;
   const r = relayUrl?.trim() || getInviteRelayUrl();
   if (r) {
     const n = normalizeWsUrl(r);
@@ -61,11 +63,11 @@ export function buildShareMessage(groupName: string, invite: string, relayUrl?: 
 
 export function extractInviteFromText(raw: string): string {
   const withRelay = raw.match(
-    /SIC1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\|wss?:\/\/[^\s|]+/i
+    /SIC[12]\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?\|wss?:\/\/[^\s|]+/i
   );
   if (withRelay) return withRelay[0];
 
-  const basic = raw.match(/SIC1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
+  const basic = raw.match(/SIC2\.[A-Za-z0-9_-]+|SIC1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
   if (basic) {
     const wss = raw.match(/wss?:\/\/[^\s|]+/i);
     if (wss && !basic[0].includes("|")) {
@@ -94,18 +96,20 @@ export function parseInviteInput(raw: string): ParsedInvite | null {
   }
 
   if (s.startsWith(PREFIX)) {
-    const rest = s.slice(PREFIX.length);
-    const dot = rest.indexOf(".");
-    if (dot <= 0 || dot === rest.length - 1) return null;
-    const serverInviteCode = rest.slice(0, dot);
-    const groupSecret = rest.slice(dot + 1);
-    if (!serverInviteCode || !groupSecret) return null;
+    const serverInviteCode = s.slice(PREFIX.length);
+    if (!serverInviteCode) return null;
     return {
       serverInviteCode,
-      groupSecret,
       legacy: false,
       relayUrl: relayUrl && relayUrl !== "wss://" && relayUrl !== "ws://" ? relayUrl : undefined,
     };
+  }
+
+  if (s.startsWith(LEGACY_PREFIX)) {
+    const rest = s.slice(LEGACY_PREFIX.length);
+    const dot = rest.indexOf(".");
+    if (dot <= 0 || dot === rest.length - 1) return null;
+    return { serverInviteCode: rest.slice(0, dot), groupSecret: rest.slice(dot + 1), legacy: true, relayUrl };
   }
 
   // 旧版兼容：整段既是 invite 也是 secret（不推荐）

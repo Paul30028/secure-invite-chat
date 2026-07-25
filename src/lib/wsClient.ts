@@ -4,7 +4,7 @@
  * 只传输密文；加解密在 crypto / envelope。
  */
 
-import { getWsUrl } from "./settings";
+import { getFallbackWsUrl, getWsUrl } from "./settings";
 import { withWireVersion } from "./protocol";
 import {
   buildAuthPayload,
@@ -20,6 +20,7 @@ export type IncomingMessage = {
   msg_type: string;
   ciphertext: string;
   iv: string;
+  key_version?: number;
   ts: number;
 };
 
@@ -29,6 +30,7 @@ export type ServerMember = {
   joined_at: number;
   is_admin: boolean;
   online: boolean;
+  ecdh_pub?: string;
 };
 
 export type CallSignal = {
@@ -57,6 +59,8 @@ type ServerEventMap = {
   code_regenerated: { group_id: string; invite_code: string };
   members: { group_id: string; members: ServerMember[] };
   member_kicked: { group_id: string; target_device_id: string };
+  member_left: { group_id: string; target_device_id: string };
+  key_delivery: { delivery_id: string; group_id: string; from_device_id: string; key_version: number; wrapped_blob: string };
   kicked: { group_id: string; reason?: string };
   call_signal: CallSignal;
   /** 服务器主动下发：手机同 Wi‑Fi 建议地址 */
@@ -67,6 +71,9 @@ type ServerEventMap = {
     hint?: string;
   };
   error: { message: string };
+  daily_notice: { dailyDevotion: string; hymn: string; scripture: string };
+  maintenance: { enabled: boolean };
+  member_muted: { group_id: string; target_device_id: string; muted: boolean };
   connected: undefined;
   disconnected: undefined;
 };
@@ -82,10 +89,11 @@ export class SicWsClient {
   private connectPromise: Promise<void> | null = null;
   private netHooksInstalled = false;
   private authChallenge: string | null = null;
+  private fallback = false;
 
   /** 每次连接读取最新 URL（设置面板可改） */
   private get url(): string {
-    return getWsUrl();
+    return this.fallback ? getFallbackWsUrl() : getWsUrl();
   }
 
   /**
@@ -169,6 +177,7 @@ export class SicWsClient {
           settled = true;
           resolve();
         }
+        if (!this.fallback && target === getWsUrl()) this.fallback = true;
         if (this.shouldReconnect) {
           setTimeout(() => this.connect(), this.reconnectDelay);
           this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, 15000);
@@ -260,6 +269,7 @@ export class SicWsClient {
       device_id: deviceId,
       display_name: displayName,
       identity_pub: identity.publicKeySpkiB64,
+      ecdh_pub: identity.ecdhPublicKeySpkiB64,
     });
   }
 
@@ -271,6 +281,7 @@ export class SicWsClient {
       device_id: deviceId,
       display_name: displayName,
       identity_pub: identity.publicKeySpkiB64,
+      ecdh_pub: identity.ecdhPublicKeySpkiB64,
     });
   }
 
@@ -321,6 +332,7 @@ export class SicWsClient {
     msgType: string;
     ciphertext: string;
     iv: string;
+    keyVersion: number;
     senderName: string;
   }) {
     this.send({
@@ -330,6 +342,7 @@ export class SicWsClient {
       msg_type: params.msgType,
       ciphertext: params.ciphertext,
       iv: params.iv,
+      key_version: params.keyVersion,
       sender_name: params.senderName,
     });
   }
@@ -375,6 +388,25 @@ export class SicWsClient {
       target_device_id: targetDeviceId,
     });
   }
+
+  revokeInvite(groupId: string, adminToken: string) { this.send({ type: "revoke_invite", group_id: groupId, admin_token: adminToken }); }
+  setInviteExpiry(groupId: string, adminToken: string, expiresAt: number | null) { this.send({ type: "set_invite_expiry", group_id: groupId, admin_token: adminToken, ...(expiresAt ? { expires_at: expiresAt } : {}) }); }
+
+  leaveGroup(groupId: string, deviceId: string) {
+    this.send({ type: "leave_group", group_id: groupId, device_id: deviceId });
+  }
+
+  deliverKey(params: { groupId: string; deviceId: string; targetDeviceId: string; keyVersion: number; wrappedBlob: string }) {
+    this.send({ type: "deliver_key", group_id: params.groupId, device_id: params.deviceId, target_device_id: params.targetDeviceId, key_version: params.keyVersion, wrapped_blob: params.wrappedBlob });
+  }
+
+  ackKeyDelivery(groupId: string, deviceId: string, deliveryId: string) {
+    this.send({ type: "ack_key_delivery", group_id: groupId, device_id: deviceId, delivery_id: deliveryId });
+  }
+  getDailyNotice() { this.send({ type: "get_daily_notice" }); }
+  publishDailyNotice(groupId: string, adminToken: string, notice: { dailyDevotion: string; hymn: string; scripture: string }) { this.send({ type: "publish_daily_notice", group_id: groupId, admin_token: adminToken, ...notice }); }
+  setMaintenance(groupId: string, adminToken: string, enabled: boolean) { this.send({ type: "set_maintenance", group_id: groupId, admin_token: adminToken, enabled }); }
+  muteMember(groupId: string, adminToken: string, targetDeviceId: string, muted: boolean) { this.send({ type: "mute_member", group_id: groupId, admin_token: adminToken, target_device_id: targetDeviceId, muted }); }
 }
 
 export const wsClient = new SicWsClient();

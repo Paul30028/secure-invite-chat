@@ -29,7 +29,10 @@ export type ClientMsgType =
   | "resume_group"
   | "sync_history"
   | "send_message"
-  | "regenerate_code";
+  | "regenerate_code"
+  | "leave_group"
+  | "deliver_key"
+  | "ack_key_delivery";
 
 /** 服务器推送类型 */
 export type ServerMsgType =
@@ -39,6 +42,7 @@ export type ServerMsgType =
   | "history"
   | "message"
   | "code_regenerated"
+  | "key_delivery"
   | "error";
 
 /**

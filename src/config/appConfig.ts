@@ -25,41 +25,29 @@ export const APP_ID = "sic";
 export const PROTOCOL = {
   /** 传输层 JSON 消息无版本字段时默认 1 */
   wire: 1,
-  /** 密文信封 EnvelopeV1 */
-  envelope: 1,
-  /** 邀请串 SIC1 */
-  invite: "SIC1",
+  /** 密文信封带 group key epoch */
+  envelope: 2,
+  /** 邀请串不再携带群密钥 */
+  invite: "SIC2",
 } as const;
 
 /**
  * 构建默认后端地址（直连）
  * 生产中国区：在 .env 或 CI 中设置 VITE_WS_URL=ws://x.x.x.x:8765
  */
-const buildEnv = (import.meta as unknown as {
-  env?: Record<string, string | boolean | undefined>;
-}).env;
-
-export const DEFAULT_WS_URL: string = (() => {
-  const configuredUrl = typeof buildEnv?.VITE_WS_URL === "string" ? buildEnv.VITE_WS_URL.trim() : "";
-  if (configuredUrl) return configuredUrl;
-  // 桌面开发默认本机；原生端无 env 时用占位，启动后由用户填或设置页引导
-  return "ws://127.0.0.1:8765";
-})();
+/** Managed service endpoint; users never enter hosts or ports. */
+export const DEFAULT_WS_URL = "wss://secureinchat.com";
+export const FALLBACK_WS_URL = "ws://212.135.212.22:8765";
 
 /**
  * 默认「写入邀请码」的服务器（直连阶段通常与 DEFAULT 相同）
  * 日后管理端在内网、成员走中继时，可单独配置 VITE_INVITE_WS_URL
  */
-export const DEFAULT_INVITE_WS_URL: string = (() => {
-  const env = buildEnv;
-  const configuredUrl = typeof env?.VITE_INVITE_WS_URL === "string" ? env.VITE_INVITE_WS_URL.trim() : "";
-  if (configuredUrl) return configuredUrl;
-  return "";
-})();
+export const DEFAULT_INVITE_WS_URL = DEFAULT_WS_URL;
 
 export const FEATURES = {
   /** 本地单机调试（不连服务器）— 真机互通时请关闭 */
-  localDebug: buildEnv?.DEV === true,
+  localDebug: false,
   /** 邀请码内嵌服务器：同 Wi‑Fi 时可选 */
   inviteEmbedServer: false,
   /** 公网：最后再做 */

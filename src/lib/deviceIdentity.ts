@@ -6,6 +6,8 @@
  */
 
 const ID_KEY = "sic_device_identity_v1";
+const KEY_DB = "sic_device_keys_v2";
+const KEY_STORE = "identities";
 const KNOWN_KEYS = "sic_known_device_pubs_v1";
 
 function toB64(buf: ArrayBuffer): string {
@@ -24,54 +26,100 @@ function fromB64(b64: string): Uint8Array {
 
 export type DeviceIdentity = {
   publicKeySpkiB64: string;
-  privateKeyPkcs8B64: string;
+  /** Only used to migrate the old localStorage representation once. */
+  privateKeyPkcs8B64?: string;
 };
+
+type StoredIdentity = {
+  id: "current";
+  publicKeySpkiB64: string;
+  privateKey: CryptoKey;
+  ecdhPublicKeySpkiB64: string;
+  ecdhPrivateKey: CryptoKey;
+};
+
+function openKeyDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(KEY_DB, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(KEY_STORE, { keyPath: "id" });
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("secure_key_store_unavailable"));
+  });
+}
+
+async function readStoredIdentity(): Promise<StoredIdentity | undefined> {
+  const db = await openKeyDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = db.transaction(KEY_STORE, "readonly").objectStore(KEY_STORE).get("current");
+      request.onsuccess = () => resolve(request.result as StoredIdentity | undefined);
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+async function saveStoredIdentity(value: StoredIdentity): Promise<void> {
+  const db = await openKeyDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const request = db.transaction(KEY_STORE, "readwrite").objectStore(KEY_STORE).put(value);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+async function generateIdentity(): Promise<StoredIdentity> {
+  // Export only during creation, then immediately re-import private keys as non-extractable.
+  const signPair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const ecdhPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  const [signSpki, signPkcs8, ecdhSpki, ecdhPkcs8] = await Promise.all([
+    crypto.subtle.exportKey("spki", signPair.publicKey),
+    crypto.subtle.exportKey("pkcs8", signPair.privateKey),
+    crypto.subtle.exportKey("spki", ecdhPair.publicKey),
+    crypto.subtle.exportKey("pkcs8", ecdhPair.privateKey),
+  ]);
+  return {
+    id: "current",
+    publicKeySpkiB64: toB64(signSpki),
+    privateKey: await crypto.subtle.importKey("pkcs8", signPkcs8, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]),
+    ecdhPublicKeySpkiB64: toB64(ecdhSpki),
+    ecdhPrivateKey: await crypto.subtle.importKey("pkcs8", ecdhPkcs8, { name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]),
+  };
+}
 
 export async function getOrCreateDeviceIdentity(): Promise<{
   publicKey: CryptoKey;
   privateKey: CryptoKey;
   publicKeySpkiB64: string;
+  ecdhPrivateKey: CryptoKey;
+  ecdhPublicKeySpkiB64: string;
 }> {
-  const raw = localStorage.getItem(ID_KEY);
-  if (raw) {
-    const saved = JSON.parse(raw) as DeviceIdentity;
-    const publicKey = await crypto.subtle.importKey(
-      "spki",
-      fromB64(saved.publicKeySpkiB64) as BufferSource,
-      { name: "ECDSA", namedCurve: "P-256" },
-      true,
-      ["verify"]
-    );
-    const privateKey = await crypto.subtle.importKey(
-      "pkcs8",
-      fromB64(saved.privateKeyPkcs8B64) as BufferSource,
-      { name: "ECDSA", namedCurve: "P-256" },
-      false,
-      ["sign"]
-    );
-    return { publicKey, privateKey, publicKeySpkiB64: saved.publicKeySpkiB64 };
+  let saved = await readStoredIdentity();
+  if (!saved) {
+    // One-way migration removes the previous plaintext private key from localStorage.
+    const legacyRaw = localStorage.getItem(ID_KEY);
+    if (legacyRaw) {
+      try {
+        const legacy = JSON.parse(legacyRaw) as DeviceIdentity;
+        if (legacy.privateKeyPkcs8B64 && legacy.publicKeySpkiB64) {
+          const fresh = await generateIdentity();
+          fresh.publicKeySpkiB64 = legacy.publicKeySpkiB64;
+          fresh.privateKey = await crypto.subtle.importKey("pkcs8", fromB64(legacy.privateKeyPkcs8B64), { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+          saved = fresh;
+        }
+      } catch { /* generate a clean identity below */ }
+      localStorage.removeItem(ID_KEY);
+    }
+    saved ||= await generateIdentity();
+    await saveStoredIdentity(saved);
   }
-
-  const pair = await crypto.subtle.generateKey(
-    { name: "ECDSA", namedCurve: "P-256" },
-    true,
-    ["sign", "verify"]
-  );
-  const spki = await crypto.subtle.exportKey("spki", pair.publicKey);
-  const pkcs8 = await crypto.subtle.exportKey("pkcs8", pair.privateKey);
-  const publicKeySpkiB64 = toB64(spki);
-  localStorage.setItem(
-    ID_KEY,
-    JSON.stringify({
-      publicKeySpkiB64,
-      privateKeyPkcs8B64: toB64(pkcs8),
-    } satisfies DeviceIdentity)
-  );
-  return {
-    publicKey: pair.publicKey,
-    privateKey: pair.privateKey,
-    publicKeySpkiB64,
-  };
+  const publicKey = await crypto.subtle.importKey("spki", fromB64(saved.publicKeySpkiB64), { name: "ECDSA", namedCurve: "P-256" }, true, ["verify"]);
+  return { publicKey, privateKey: saved.privateKey, publicKeySpkiB64: saved.publicKeySpkiB64, ecdhPrivateKey: saved.ecdhPrivateKey, ecdhPublicKeySpkiB64: saved.ecdhPublicKeySpkiB64 };
 }
 
 /** 签名内容：规范化字符串，收发双方一致 */
@@ -80,8 +128,10 @@ export function buildSignPayload(parts: {
   deviceId: string;
   ts: number;
   groupId: string;
+  keyVersion?: number;
 }): string {
-  return `${parts.groupId}|${parts.deviceId}|${parts.ts}|${parts.body}`;
+  const base = `${parts.groupId}|${parts.deviceId}|${parts.ts}|${parts.body}`;
+  return parts.keyVersion === undefined ? base : `${base}|${parts.keyVersion}`;
 }
 
 export async function signPayload(
