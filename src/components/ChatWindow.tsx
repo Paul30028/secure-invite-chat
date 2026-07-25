@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
+﻿import { useEffect, useRef, useState, type DragEvent } from "react";
 import { MessageBubble } from "./MessageBubble";
 import type { ChatMessage, LocalGroup } from "../lib/types";
+import { computeGroupSafetyNumber, formatSafetyNumber } from "../lib/safetyNumber";
 import { MAX_FILE_BYTES, type FileSendProgress } from "../hooks/useChatEngine";
 
-const EMOJIS = ["😀", "😂", "🥰", "😢", "😮", "👍", "👎", "🙏", "🎉", "❤️", "🔥", "✅"];
+const QUICK_EMOJIS = ["😀", "😂", "👍", "❤️", "🎉", "😢", "😮", "🙏", "✅", "🔥"];
 
 function formatSize(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -17,12 +18,12 @@ export function ChatWindow({
   onSend,
   onSendFile,
   onSimulatePeer,
+  onOpenAdmin,
   onOpenMembers,
-  onStartAudioCall,
-  onStartVideoCall,
-  callAvailable,
   memberCount,
+  onLeave,
   onBack,
+  groupSecret,
   localMode,
 }: {
   group: LocalGroup;
@@ -32,9 +33,6 @@ export function ChatWindow({
   onSimulatePeer?: () => void;
   onOpenAdmin: () => void;
   onOpenMembers?: () => void;
-  onStartAudioCall?: () => void;
-  onStartVideoCall?: () => void;
-  callAvailable?: boolean;
   memberCount?: number;
   onLeave: () => void;
   onBack?: () => void;
@@ -42,10 +40,14 @@ export function ChatWindow({
   localMode?: boolean;
 }) {
   const [text, setText] = useState("");
-  const [fileProgress, setFileProgress] = useState<FileSendProgress | null>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const [showActions, setShowActions] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showLinkBox, setShowLinkBox] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkNote, setLinkNote] = useState("");
+  const [fileProgress, setFileProgress] = useState<FileSendProgress | null>(null);
+  const [showSafety, setShowSafety] = useState(false);
+  const [safety, setSafety] = useState("");
+  const [dragOver, setDragOver] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
@@ -53,238 +55,365 @@ export function ChatWindow({
   const sendingFile = fileProgress !== null && fileProgress.stage !== "done";
 
   useEffect(() => {
+    if (!showSafety) return;
+    const secret = groupSecret || group.groupSecret || group.lastKnownInviteCode;
+    void computeGroupSafetyNumber(secret, group.groupId).then((d) =>
+      setSafety(formatSafetyNumber(d))
+    );
+  }, [showSafety, group.groupId, group.groupSecret, group.lastKnownInviteCode, groupSecret]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, fileProgress?.percent]);
 
   const handleSend = () => {
-    const value = text.trim();
-    if (!value) return;
-    onSend(value);
+    if (!text.trim()) return;
+    onSend(text);
     setText("");
+    setShowEmoji(false);
   };
 
-  const handleFile = async (file: File | null) => {
-    setShowActions(false);
-    setShowEmoji(false);
-    if (!file) return;
-    if (file.size > MAX_FILE_BYTES) {
-      alert(`文件过大（${formatSize(file.size)}），当前上限 ${MAX_FILE_BYTES / 1024 / 1024}MB`);
+  const sendLink = () => {
+    let u = linkUrl.trim();
+    if (!u) return;
+    if (!/^https?:\/\//i.test(u) && !/^www\./i.test(u)) {
+      u = `https://${u}`;
+    }
+    const note = linkNote.trim();
+    onSend(note ? `${note}\n${u}` : u);
+    setLinkUrl("");
+    setLinkNote("");
+    setShowLinkBox(false);
+  };
+
+  const handleFile = async (f: File | null) => {
+    if (!f) return;
+    if (f.size > MAX_FILE_BYTES) {
+      alert(`文件过大（${formatSize(f.size)}），当前上限 ${MAX_FILE_BYTES / 1024 / 1024}MB`);
       if (fileRef.current) fileRef.current.value = "";
+      if (imageRef.current) imageRef.current.value = "";
       return;
     }
-
-    setFileProgress({ percent: 0, stage: "read", label: "准备发送…" });
+    setFileProgress({ percent: 0, stage: "read", label: "准备传送…" });
     try {
-      await onSendFile(file, setFileProgress);
+      await onSendFile(f, setFileProgress);
       setTimeout(() => setFileProgress(null), 600);
     } catch {
       setFileProgress(null);
     } finally {
       if (fileRef.current) fileRef.current.value = "";
+      if (imageRef.current) imageRef.current.value = "";
     }
   };
 
-  const onDrop = (event: DragEvent) => {
-    event.preventDefault();
+  const onDrop = (e: DragEvent) => {
+    e.preventDefault();
     setDragOver(false);
-    const file = event.dataTransfer.files?.[0];
-    if (file) void handleFile(file);
+    const f = e.dataTransfer.files?.[0];
+    if (f) void handleFile(f);
   };
 
   return (
-    <main
-      className="relative flex h-full min-w-0 flex-1 flex-col bg-[#ededed]"
-      onDragOver={(event) => {
-        event.preventDefault();
+    <div
+      className="flex-1 flex flex-col h-full min-w-0 bg-[#ededed] relative text-[#1f2329]"
+      onDragOver={(e) => {
+        e.preventDefault();
         setDragOver(true);
       }}
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}
     >
       {dragOver && (
-        <div className="pointer-events-none absolute inset-0 z-40 grid place-items-center border-2 border-dashed border-[#07c160] bg-white/92">
-          <div className="text-center text-[#191919]">
-            <div className="mb-2 text-3xl">📎</div>
-            <p className="text-sm font-medium">松开即可发送文件</p>
-            <p className="mt-1 text-xs text-[#888]">最大 {MAX_FILE_BYTES / 1024 / 1024}MB</p>
-          </div>
-        </div>
-      )}
-
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-[#dedede] bg-[#f7f7f7] px-2 sm:h-14 sm:px-5">
-        <div className="flex min-w-0 items-center gap-2">
-          {onBack && (
-            <button
-              type="button"
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[30px] font-light leading-none text-[#191919] active:bg-[#e8e8e8] sm:hidden"
-              onClick={onBack}
-              aria-label="返回聊天列表"
-            >
-              ‹
-            </button>
-          )}
-          <div className="min-w-0">
-            <h1 className="truncate text-[17px] font-medium text-[#191919]">{group.name}</h1>
-            <p className="truncate text-[11px] text-[#999]">
-              {typeof memberCount === "number" ? `${memberCount} 位成员` : group.displayName}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-0.5">
-          {callAvailable && (
-            <>
-              <button type="button" className="grid h-10 w-9 place-items-center rounded-full text-lg text-[#555] active:bg-[#e8e8e8]" onClick={onStartAudioCall} aria-label="语音通话" title="语音通话">☎</button>
-              <button type="button" className="grid h-10 w-9 place-items-center rounded-full text-lg text-[#555] active:bg-[#e8e8e8]" onClick={onStartVideoCall} aria-label="视频通话" title="视频通话">▣</button>
-            </>
-          )}
-          {onOpenMembers && (
-            <button
-              type="button"
-              className="grid h-10 w-9 place-items-center rounded-full text-[22px] text-[#555] active:bg-[#e8e8e8]"
-              onClick={onOpenMembers}
-              aria-label="查看聊天成员"
-              title="聊天成员"
-            >
-              ⋯
-            </button>
-          )}
-        </div>
-      </header>
-
-      <section className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-5 sm:py-4">
-        {messages.length === 0 ? (
-          <div className="mx-auto mt-16 max-w-xs text-center">
-            <p className="text-sm text-[#999]">暂时没有消息</p>
-            <p className="mt-2 text-xs leading-relaxed text-[#aaa]">
-              输入文字、粘贴链接，或点左下角按钮发送图片和文件。
-            </p>
-            {localMode && onSimulatePeer && (
-              <button
-                type="button"
-                onClick={onSimulatePeer}
-                className="mt-4 text-xs text-[#576b95] hover:underline"
-              >
-                模拟收到一条消息
-              </button>
-            )}
-          </div>
-        ) : (
-          messages.map((message) => <MessageBubble key={message.id} msg={message} />)
-        )}
-        <div ref={bottomRef} />
-      </section>
-
-      {fileProgress && (
-        <div className="border-t border-[#dedede] bg-white px-3 pt-2 sm:px-4">
-          <div className="flex items-center gap-3 rounded-lg bg-[#f7f7f7] px-3 py-2">
-            <span className="text-sm">📎</span>
-            <div className="min-w-0 flex-1">
-              <div className="flex justify-between gap-2 text-[11px] text-[#666]">
-                <span className="truncate">{fileProgress.label}</span>
-                <span>{fileProgress.percent}%</span>
-              </div>
-              <div className="mt-1 h-1 overflow-hidden rounded-full bg-[#dedede]">
-                <div className="h-full rounded-full bg-[#07c160] transition-all" style={{ width: `${fileProgress.percent}%` }} />
-              </div>
+        <div className="absolute inset-0 z-40 bg-[#07c160]/15 border-2 border-dashed border-[#07c160] flex items-center justify-center pointer-events-none">
+          <div className="text-center text-[#1f2329]">
+            <div className="text-3xl mb-2">📎</div>
+            <div className="text-sm font-medium">松开以加密传送文件</div>
+            <div className="text-xs text-[#07c160] mt-1">
+              上限 {MAX_FILE_BYTES / 1024 / 1024}MB
             </div>
           </div>
         </div>
       )}
 
-      <footer
-        className="border-t border-[#d8d8d8] bg-[#f7f7f7] px-2 py-2 sm:px-3"
+      <div className="h-14 shrink-0 border-b border-[#d9d9d9] bg-[#f7f7f7] flex items-center justify-between px-3 sm:px-5 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {onBack && (
+            <button
+              type="button"
+              className="sm:hidden w-9 h-9 rounded-md bg-transparent text-[#1f2329] text-xl shrink-0"
+              onClick={onBack}
+              aria-label="返回"
+            >
+              ←
+            </button>
+          )}
+          <div className="min-w-0">
+            <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+              {group.name}
+              {group.isAdmin && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#07c160]/15 text-[#118c43] font-normal">
+                  管理端
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-[#8a8a8a] truncate">
+              {typeof memberCount === "number" ? `${memberCount} 人 · ` : ""}
+              {group.isAdmin ? "管理端" : group.displayName} · 加密
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 flex-wrap justify-end">
+          {localMode && onSimulatePeer && (
+            <button
+              type="button"
+              className="px-2 py-1.5 text-[11px] rounded-lg bg-[#e5f6ee] text-[#118c43]"
+              onClick={onSimulatePeer}
+            >
+              模拟
+            </button>
+          )}
+          {onOpenMembers && (
+            <button
+              type="button"
+              className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-white hover:bg-[#f0f0f0] text-[#333] border border-[#d9d9d9]"
+              onClick={onOpenMembers}
+            >
+              成员{typeof memberCount === "number" ? `(${memberCount})` : ""}
+            </button>
+          )}
+          <button
+            type="button"
+            className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-[#e5f6ee] text-[#118c43] border border-[#c7ead8]"
+            onClick={() => setShowSafety(true)}
+          >
+            安全码
+          </button>
+          {group.isAdmin && (
+            <button
+              type="button"
+              className="px-2 sm:px-2.5 py-1.5 text-xs rounded-md bg-[#07c160] text-white font-medium"
+              onClick={onOpenAdmin}
+            >
+              邀请码
+            </button>
+          )}
+          <button
+            type="button"
+            className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-white text-[#e54d42] border border-[#ead0cd]"
+            onClick={onLeave}
+          >
+            退出
+          </button>
+        </div>
+      </div>
+
+      {showSafety && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#d9d9d9] rounded-xl p-5 max-w-sm w-full">
+            <h3 className="text-sm font-semibold text-[#118c43] mb-2">群安全码</h3>
+            <p className="font-mono text-[11px] text-[#1f2329] leading-relaxed break-all mb-3">
+              {safety || "…"}
+            </p>
+            <p className="text-[11px] text-[#8a8a8a] mb-4 leading-relaxed">
+              与群友当面或语音逐位核对。一致 = 双方群密钥相同。
+            </p>
+            <button
+              type="button"
+              className="w-full py-2 text-sm rounded-lg bg-[#f2f2f2] text-[#333]"
+              onClick={() => setShowSafety(false)}
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showLinkBox && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#d9d9d9] rounded-xl p-5 max-w-sm w-full">
+            <h3 className="text-sm font-semibold text-[#1f2329] mb-1">分享链接</h3>
+            <p className="text-[11px] text-[#8a8a8a] mb-3">
+              发送后对方会看到可点击的链接卡片（打开 / 复制）
+            </p>
+            <label className="text-xs text-[#6b7280] mb-1 block">网址</label>
+            <input
+              className="w-full bg-[#f7f7f7] border border-[#d9d9d9] rounded-lg px-3 py-2.5 mb-3 text-sm outline-none focus:border-[#07c160] font-mono"
+              placeholder="https://… 或 www.…"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              autoFocus
+            />
+            <label className="text-xs text-[#6b7280] mb-1 block">备注（可选）</label>
+            <input
+              className="w-full bg-[#f7f7f7] border border-[#d9d9d9] rounded-lg px-3 py-2.5 mb-4 text-sm outline-none focus:border-[#07c160]"
+              placeholder="例如：会议纪要 / 资料下载"
+              value={linkNote}
+              onChange={(e) => setLinkNote(e.target.value)}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                className="px-3 py-2 text-sm rounded-lg text-[#555] hover:bg-[#f2f2f2]"
+                onClick={() => setShowLinkBox(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="px-3 py-2 text-sm rounded-md bg-[#07c160] text-white disabled:opacity-40"
+                disabled={!linkUrl.trim()}
+                onClick={sendLink}
+              >
+                发送链接
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 wechat-chat-scroll">
+        {messages.length === 0 ? (
+          <div className="text-center mt-10 px-4 space-y-2">
+            <p className="text-xs text-[#8a8a8a]">
+              {localMode
+                ? "本地调试中：发一条文字 / 点 🔗 链接 / 📎 文件，立即出现在下方。"
+                : "还没有消息。可发文字、链接、图片或文件（端到端加密）。"}
+            </p>
+            {localMode && onSimulatePeer && (
+              <button
+                type="button"
+                onClick={onSimulatePeer}
+                className="text-xs text-[#118c43] underline"
+              >
+                点这里模拟对方发来一条 →
+              </button>
+            )}
+            {group.isAdmin && !localMode && (
+              <button
+                type="button"
+                onClick={onOpenAdmin}
+                className="text-xs text-[#118c43] underline"
+              >
+                打开管理端，邀请手机 / 其它电脑加入 →
+              </button>
+            )}
+            <p className="text-[11px] text-[#9a9a9a]">
+              桌面端可直接把文件拖进此窗口
+            </p>
+          </div>
+        ) : (
+          messages.map((m) => <MessageBubble key={m.id} msg={m} />)
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {fileProgress && (
+        <div className="px-3 sm:px-4 pb-1">
+          <div className="rounded-xl border border-[#c7ead8] bg-[#e5f6ee] px-3 py-2.5">
+            <div className="flex items-center justify-between text-[11px] text-[#118c43] mb-1.5">
+              <span className="truncate">加密传送 · {fileProgress.label}</span>
+              <span className="shrink-0 tabular-nums ml-2">
+                {fileProgress.percent}%
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-[#0d1117] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#07c160] transition-all duration-200 ease-out"
+                style={{ width: `${fileProgress.percent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div
+        className="border-t border-[#d9d9d9] bg-[#f7f7f7] p-2 sm:p-3 relative"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
         {showEmoji && (
-          <div className="mb-2 grid grid-cols-6 gap-1 rounded-xl bg-white p-2 shadow-sm sm:max-w-sm">
-            {EMOJIS.map((emoji) => (
+          <div className="absolute bottom-full mb-2 left-2 right-2 sm:right-auto sm:left-3 bg-white border border-[#d9d9d9] rounded-lg p-2 flex flex-wrap gap-1 shadow-xl z-10">
+            {QUICK_EMOJIS.map((e) => (
               <button
-                key={emoji}
+                key={e}
                 type="button"
-                className="grid h-10 place-items-center rounded-lg text-xl active:bg-[#f2f2f2]"
-                onClick={() => {
-                  setText((value) => value + emoji);
-                  setShowEmoji(false);
-                }}
-                aria-label={emoji}
+                className="text-xl p-1 hover:scale-110 transition-transform"
+                onClick={() => setText((t) => t + e)}
               >
-                {emoji}
+                {e}
               </button>
             ))}
           </div>
         )}
-        {showActions && (
-          <div className="mb-2 grid grid-cols-3 gap-2 rounded-xl bg-white p-2 shadow-sm sm:max-w-sm">
-            <button type="button" className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg text-xs text-[#555] active:bg-[#f2f2f2]" onClick={() => imageRef.current?.click()} disabled={sendingFile}>
-              <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f5f5f5] text-xl">▣</span>图片
-            </button>
-            <button type="button" className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg text-xs text-[#555] active:bg-[#f2f2f2]" onClick={() => fileRef.current?.click()} disabled={sendingFile}>
-              <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f5f5f5] text-xl">⌑</span>文件
-            </button>
-            {localMode && onSimulatePeer ? (
-              <button type="button" className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg text-xs text-[#555] active:bg-[#f2f2f2]" onClick={() => { setShowActions(false); onSimulatePeer(); }}>
-                <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f5f5f5] text-xl">◌</span>测试消息
-              </button>
-            ) : <div className="min-h-20" />}
-          </div>
-        )}
-        <div className="flex items-end gap-1.5">
+        <div className="flex items-end gap-1 sm:gap-1.5">
           <button
             type="button"
-            className="grid h-10 w-9 shrink-0 place-items-center rounded-lg text-xl text-[#555] active:bg-[#e8e8e8]"
-            onClick={() => {
-              setShowEmoji((open) => !open);
-              setShowActions(false);
-            }}
-            aria-label="选择表情"
+            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-md bg-white hover:bg-[#f0f0f0] border border-[#d9d9d9] flex items-center justify-center text-base"
+            onClick={() => setShowEmoji((s) => !s)}
             title="表情"
           >
-            ☺
+            🙂
           </button>
           <button
             type="button"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-xl text-[#555] hover:bg-[#e8e8e8] disabled:opacity-40"
-            onClick={() => setShowActions((open) => !open)}
+            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-md bg-white hover:bg-[#f0f0f0] border border-[#d9d9d9] flex items-center justify-center text-sm disabled:opacity-40"
+            onClick={() => setShowLinkBox(true)}
             disabled={sendingFile}
-            title="更多发送方式"
-            aria-label="更多发送方式"
+            title="分享链接"
           >
-            {sendingFile ? "…" : "+"}
+            🔗
+          </button>
+          <button
+            type="button"
+            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-md bg-white hover:bg-[#f0f0f0] border border-[#d9d9d9] flex items-center justify-center text-sm disabled:opacity-40"
+            onClick={() => imageRef.current?.click()}
+            disabled={sendingFile}
+            title="发送图片"
+          >
+            🖼
+          </button>
+          <button
+            type="button"
+            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-md bg-white hover:bg-[#f0f0f0] border border-[#d9d9d9] flex items-center justify-center text-sm disabled:opacity-40"
+            onClick={() => fileRef.current?.click()}
+            disabled={sendingFile}
+            title={`加密传送文件（≤${MAX_FILE_BYTES / 1024 / 1024}MB）`}
+          >
+            {sendingFile ? "…" : "📎"}
           </button>
           <input
             ref={imageRef}
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(event) => void handleFile(event.target.files?.[0] || null)}
+            onChange={(e) => handleFile(e.target.files?.[0] || null)}
           />
           <input
             ref={fileRef}
             type="file"
             className="hidden"
-            onChange={(event) => void handleFile(event.target.files?.[0] || null)}
+            onChange={(e) => handleFile(e.target.files?.[0] || null)}
           />
           <textarea
-            className="min-h-10 max-h-28 flex-1 resize-none rounded-md border border-[#dedede] bg-white px-3 py-2 text-sm leading-5 text-[#191919] outline-none placeholder:text-[#aaa] focus:border-[#b5b5b5]"
-            placeholder="输入消息"
+            className="flex-1 bg-[#f7f7f7] border border-[#d9d9d9] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#07c160] resize-none min-h-[40px] max-h-28"
+            placeholder="发消息"
             rows={1}
             value={text}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
                 handleSend();
               }
             }}
-            onPaste={(event) => {
-              const items = event.clipboardData?.items;
+            onPaste={(e) => {
+              const items = e.clipboardData?.items;
               if (!items) return;
-              for (const item of items) {
-                if (item.kind === "file") {
-                  const file = item.getAsFile();
-                  if (file) {
-                    event.preventDefault();
-                    void handleFile(file);
+              for (const it of items) {
+                if (it.kind === "file") {
+                  const f = it.getAsFile();
+                  if (f) {
+                    e.preventDefault();
+                    void handleFile(f);
                     return;
                   }
                 }
@@ -293,15 +422,14 @@ export function ChatWindow({
           />
           <button
             type="button"
-            className="h-10 shrink-0 rounded-md bg-[#07c160] px-4 text-sm text-white hover:bg-[#06ad56] disabled:bg-[#b9ddc5]"
+            className="px-3 sm:px-4 py-2.5 text-sm rounded-md bg-[#07c160] hover:bg-[#06ad56] text-white disabled:opacity-40 shrink-0 min-h-[40px]"
             disabled={!text.trim() || sendingFile}
             onClick={handleSend}
           >
             发送
           </button>
         </div>
-        <p className="mt-1 hidden text-[10px] text-[#aaa] sm:block">Enter 发送 · Shift + Enter 换行 · 可直接粘贴链接或图片</p>
-      </footer>
-    </main>
+      </div>
+    </div>
   );
 }

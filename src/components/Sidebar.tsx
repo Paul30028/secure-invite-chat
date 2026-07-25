@@ -1,4 +1,4 @@
-import type { LocalGroup } from "../lib/types";
+﻿import type { LocalGroup } from "../lib/types";
 import type { ConnStatus } from "../hooks/useChatEngine";
 
 export function Sidebar({
@@ -23,35 +23,81 @@ export function Sidebar({
   status: ConnStatus;
   mobileOpen?: boolean;
 }) {
-  const online = status === "local" || status === "online";
+  const statusColor =
+    status === "local" || status === "online"
+      ? "bg-emerald-400"
+      : status === "connecting"
+        ? "bg-amber-500"
+        : "bg-red-500";
+  const statusText =
+    status === "local"
+      ? "单机"
+      : status === "online"
+        ? "已连接"
+        : status === "connecting"
+          ? "连接中"
+          : "未连接";
+
   const hideOnMobile = mobileOpen === false;
-  const active = groups.find((group) => group.groupId === activeGroupId);
+  const active = groups.find((g) => g.groupId === activeGroupId);
 
   return (
-    <aside className={`${hideOnMobile ? "hidden" : "flex"} sm:flex h-full w-full shrink-0 flex-col border-r border-[#e7e7e7] bg-[#f7f7f7] sm:w-72`}>
-      <header className="flex items-center justify-between border-b border-[#e7e7e7] px-4 py-4">
-        <div>
-          <h1 className="text-base font-semibold text-[#191919]">聊天</h1>
-          <p className="mt-0.5 text-[11px] text-[#888]">
-            <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${online ? "bg-[#07c160]" : "bg-[#fa5151]"}`} />
-            {online ? "已连接" : "连接中"}
-          </p>
+    <aside
+      className={`${
+        hideOnMobile ? "hidden" : "flex"
+      } sm:flex w-full sm:w-72 shrink-0 bg-[#2e2e2e] border-r border-[#242424] text-white flex-col h-full`}
+    >
+      <div className="px-4 py-3 border-b border-[#242424] flex items-center justify-between gap-2">
+        <h1 className="text-base font-semibold tracking-wide">微信式密聊</h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="text-xs text-zinc-300 px-2 py-1 rounded bg-[#3a3a3a] hover:bg-[#464646]"
+            onClick={onSettings}
+          >
+            设置
+          </button>
+          <div className="flex items-center gap-1.5 text-xs text-zinc-300">
+            <span className={`w-2 h-2 rounded-full ${statusColor}`} />
+            {statusText}
+          </div>
         </div>
-        <button type="button" className="rounded-lg px-2 py-1 text-sm text-[#666] hover:bg-[#e9e9e9]" onClick={onSettings}>•••</button>
-      </header>
+      </div>
 
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className="flex-1 overflow-y-auto py-2">
         {groups.length === 0 && (
-          <p className="px-7 py-10 text-center text-sm leading-6 text-[#999]">还没有聊天。<br />创建群，或输入邀请码加入。</p>
+          <p className="text-xs text-zinc-400 px-4 py-8 text-center leading-relaxed">
+            还没有聊天
+            <br />
+            像微信一样，先创建群聊或扫一扫/粘贴邀请码加入
+          </p>
         )}
-        {groups.map((group) => (
-          <button key={group.groupId} type="button" onClick={() => onSelect(group.groupId)} className={`flex w-full items-center gap-3 px-4 py-3 text-left ${activeGroupId === group.groupId ? "bg-[#e9e9e9]" : "hover:bg-[#efefef]"}`}>
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-base font-semibold text-white ${group.isAdmin ? "bg-[#07c160]" : "bg-[#8aa1b5]"}`}>
-              {group.name.slice(0, 1)}
+        {groups.map((g) => (
+          <button
+            key={g.groupId}
+            type="button"
+            onClick={() => onSelect(g.groupId)}
+            className={`w-full text-left px-3 py-3 flex items-center gap-3 transition-colors ${
+              activeGroupId === g.groupId ? "bg-[#3a3a3a]" : "hover:bg-[#363636]"
+            }`}
+          >
+            <div
+              className={`w-11 h-11 rounded-md flex items-center justify-center text-sm font-semibold shrink-0 ${
+                g.isAdmin ? "bg-[#07c160]" : "bg-[#6b7280]"
+              }`}
+            >
+              {g.name.slice(0, 1)}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-[#191919]">{group.name}</p>
-              <p className="mt-0.5 truncate text-xs text-[#999]">{group.displayName}</p>
+              <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                {g.name}
+                {g.isAdmin && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#07c160]/20 text-[#95ec69]">
+                    管理
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-zinc-400 truncate">{g.displayName}</div>
             </div>
           </button>
         ))}
@@ -59,25 +105,35 @@ export function Sidebar({
 
       {active?.isAdmin && onOpenAdmin && (
         <div className="px-3 pb-2">
-          <button type="button" onClick={onOpenAdmin} className="w-full rounded-lg bg-[#07c160] py-2.5 text-sm font-medium text-white">分享邀请码</button>
+          <button
+            type="button"
+            onClick={onOpenAdmin}
+            className="w-full py-2.5 text-sm rounded-xl bg-[#07c160] hover:bg-[#06ad56] text-white font-medium"
+          >
+            查看 / 分享邀请码
+          </button>
         </div>
       )}
 
-      <footer className="grid grid-cols-3 border-t border-[#e7e7e7] bg-white px-2 pt-2 sm:hidden" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
-        <button type="button" className="flex flex-col items-center gap-0.5 py-1.5 text-[11px] text-[#07c160]" onClick={() => activeGroupId && onSelect(activeGroupId)}>
-          <span className="text-lg leading-none">◉</span>聊天
+      <div
+        className="p-3 border-t border-[#242424] flex gap-2"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        <button
+          type="button"
+          className="flex-1 px-3 py-2.5 text-xs rounded-md bg-[#07c160] text-white"
+          onClick={onCreate}
+        >
+          发起群聊
         </button>
-        <button type="button" className="flex flex-col items-center gap-0.5 py-1.5 text-[11px] text-[#555]" onClick={onCreate}>
-          <span className="text-lg leading-none">＋</span>新建
+        <button
+          type="button"
+          className="flex-1 px-3 py-2.5 text-xs rounded-md bg-[#3a3a3a] text-zinc-100"
+          onClick={onJoin}
+        >
+          加入群聊
         </button>
-        <button type="button" className="flex flex-col items-center gap-0.5 py-1.5 text-[11px] text-[#555]" onClick={onJoin}>
-          <span className="text-lg leading-none">⌁</span>加入
-        </button>
-      </footer>
-      <footer className="hidden gap-2 border-t border-[#e7e7e7] p-3 sm:flex">
-        <button type="button" className="flex-1 rounded-lg bg-[#07c160] py-2.5 text-sm font-medium text-white" onClick={onCreate}>新建聊天</button>
-        <button type="button" className="flex-1 rounded-lg bg-white py-2.5 text-sm text-[#444] ring-1 ring-[#dedede]" onClick={onJoin}>加入聊天</button>
-      </footer>
+      </div>
     </aside>
   );
 }

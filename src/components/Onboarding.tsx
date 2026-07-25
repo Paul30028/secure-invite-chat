@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import type { ConnStatus } from "../hooks/useChatEngine";
 import { APP_NAME } from "../config/appConfig";
 import {
@@ -20,7 +20,6 @@ export function Onboarding({
   onOpenSettings,
   onCreate,
   onJoin,
-  onOpenDemo,
 }: {
   status: ConnStatus;
   phoneHints?: string[];
@@ -28,7 +27,6 @@ export function Onboarding({
   onOpenSettings: () => void;
   onCreate: () => void;
   onJoin: () => void;
-  onOpenDemo: () => void;
 }) {
   const [url, setUrl] = useState(getWsUrl());
   const ready = status === "online" || status === "local";
@@ -45,27 +43,27 @@ export function Onboarding({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#0d1117] overflow-y-auto">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#ededed] overflow-y-auto">
       <div className="px-5 pt-10 pb-4">
-        <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-2xl mb-4">
+        <div className="w-14 h-14 rounded-2xl bg-[#07c160] flex items-center justify-center text-2xl mb-4">
           💬
         </div>
-        <h1 className="text-xl font-bold text-white mb-1">{APP_NAME}</h1>
-        <p className="text-sm text-slate-400 leading-relaxed">
-          先跑通：手机与电脑<strong className="text-slate-200">同一 Wi‑Fi</strong>
+        <h1 className="text-xl font-bold text-[#1f2329] mb-1">{APP_NAME}</h1>
+        <p className="text-sm text-[#6b7280] leading-relaxed">
+          先跑通：手机与电脑<strong className="text-[#333]">同一 Wi‑Fi</strong>
           ，填地址即可聊天。
           <br />
-          <span className="text-slate-600">公网/流量以后再说</span>
+          <span className="text-[#9a9a9a]">公网/流量以后再说</span>
         </p>
       </div>
 
       <div
         className={`mx-4 mb-4 rounded-xl px-4 py-3 text-sm flex items-center gap-2 ${
           ready
-            ? "bg-emerald-950/50 border border-emerald-800 text-emerald-300"
+            ? "bg-[#e5f6ee] border border-[#c7ead8] text-[#118c43]"
             : status === "connecting"
-              ? "bg-amber-950/40 border border-amber-800 text-amber-200"
-              : "bg-red-950/40 border border-red-900 text-red-200"
+              ? "bg-[#fff7e6] border border-[#f3d19e] text-[#9a6700]"
+              : "bg-[#fff1f0] border border-[#ffccc7] text-[#b42318]"
         }`}
       >
         <span
@@ -86,44 +84,32 @@ export function Onboarding({
               : "未连接 · 按下面步骤填写"}
       </div>
 
-
-      <div className="mx-4 mb-4">
-        <button
-          type="button"
-          onClick={onOpenDemo}
-          className="w-full rounded-2xl bg-[#07c160] px-5 py-4 text-left text-white shadow-sm hover:bg-[#06ad58]"
-        >
-          <span className="block text-base font-semibold">直接体验聊天界面</span>
-          <span className="mt-1 block text-[12px] text-white/80">无需服务器；仅在本机显示示例消息</span>
-        </button>
-      </div>
-
       {/* 三步跑通 */}
-      <div className="mx-4 mb-4 rounded-xl border border-[#30363d] bg-[#161b22] p-4 text-[12px] text-slate-400 leading-relaxed space-y-2">
-        <p className="text-slate-200 font-semibold text-sm">三步跑通</p>
+      <div className="mx-4 mb-4 rounded-xl border border-[#d9d9d9] bg-white p-4 text-[12px] text-[#6b7280] leading-relaxed space-y-2">
+        <p className="text-[#333] font-semibold text-sm">三步跑通</p>
         <p>
-          <b className="text-slate-300">1.</b> 电脑运行{" "}
-          <code className="text-indigo-300">python server/server.py</code>
+          <b className="text-[#444]">1.</b> 电脑运行{" "}
+          <code className="text-[#118c43]">python server/server.py</code>
         </p>
         <p>
-          <b className="text-slate-300">2.</b> 电脑打开本网页，应自动连上；看是否出现
+          <b className="text-[#444]">2.</b> 电脑打开本网页，应自动连上；看是否出现
           「手机请填…」地址
         </p>
         <p>
-          <b className="text-slate-300">3.</b> 手机连<strong className="text-slate-300">同一 Wi‑Fi</strong>
-          ，填 <code className="text-indigo-300">ws://电脑IP:8765</code> 后点连接
+          <b className="text-[#444]">3.</b> 手机连<strong className="text-[#444]">同一 Wi‑Fi</strong>
+          ，填 <code className="text-[#118c43]">ws://电脑IP:8765</code> 后点连接
         </p>
       </div>
 
       {/* 桌面：显示给手机的地址 */}
       {!isPhone && status === "online" && hints.length > 0 && (
-        <div className="mx-4 mb-4 rounded-xl border border-emerald-800/50 bg-emerald-950/20 p-4">
-          <p className="text-xs font-semibold text-emerald-300 mb-2">手机请填这个地址</p>
+        <div className="mx-4 mb-4 rounded-xl border border-[#c7ead8] bg-[#e5f6ee] p-4">
+          <p className="text-xs font-semibold text-[#118c43] mb-2">手机请填这个地址</p>
           {hints.map((h) => (
             <button
               key={h}
               type="button"
-              className="w-full text-left font-mono text-sm text-emerald-100 bg-[#0d1117] border border-emerald-900/40 rounded-lg px-3 py-2.5 mb-2"
+              className="w-full text-left font-mono text-sm text-[#118c43] bg-white border border-[#c7ead8] rounded-lg px-3 py-2.5 mb-2"
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(h);
@@ -133,15 +119,15 @@ export function Onboarding({
               }}
             >
               {h}
-              <span className="block text-[10px] text-slate-500 mt-0.5">点击复制，发到手机</span>
+              <span className="block text-[10px] text-[#8a8a8a] mt-0.5">点击复制，发到手机</span>
             </button>
           ))}
         </div>
       )}
 
       {needServer && (
-        <div className="mx-4 mb-4 rounded-xl border border-[#30363d] bg-[#161b22] p-4">
-          <p className="text-xs text-slate-400 mb-2">
+        <div className="mx-4 mb-4 rounded-xl border border-[#d9d9d9] bg-white p-4">
+          <p className="text-xs text-[#6b7280] mb-2">
             {isPhone ? "填写电脑的局域网地址（同一 Wi‑Fi）" : "服务器地址"}
           </p>
           {isPhone && hints.length > 0 && (
@@ -150,7 +136,7 @@ export function Onboarding({
                 <button
                   key={h}
                   type="button"
-                  className="text-left text-[12px] font-mono px-3 py-2 rounded-lg bg-indigo-950/40 border border-indigo-800 text-indigo-200"
+                  className="text-left text-[12px] font-mono px-3 py-2 rounded-lg bg-[#e5f6ee] border border-[#c7ead8] text-[#118c43]"
                   onClick={() => connect(h)}
                 >
                   一键连接 {h}
@@ -159,15 +145,15 @@ export function Onboarding({
             </div>
           )}
           <input
-            className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2.5 text-sm font-mono mb-2 outline-none focus:border-indigo-500"
+            className="w-full bg-[#ededed] border border-[#d9d9d9] rounded-lg px-3 py-2.5 text-sm font-mono mb-2 outline-none focus:border-[#07c160]"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="ws://192.168.x.x:8765"
           />
-          <p className="text-[10px] text-slate-500 mb-3">{info.hint}</p>
+          <p className="text-[10px] text-[#8a8a8a] mb-3">{info.hint}</p>
           <button
             type="button"
-            className="w-full py-3.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold"
+            className="w-full py-3.5 rounded-xl bg-[#07c160] text-white text-sm font-semibold"
             onClick={() => connect(url)}
           >
             连接
@@ -175,14 +161,14 @@ export function Onboarding({
           <div className="flex gap-2 mt-2">
             <button
               type="button"
-              className="flex-1 py-2 text-[11px] rounded-lg bg-[#21262d] text-slate-400"
+              className="flex-1 py-2 text-[11px] rounded-lg bg-white text-[#6b7280]"
               onClick={() => setUrl("ws://192.168.1.")}
             >
               192.168.1. 模板
             </button>
             <button
               type="button"
-              className="flex-1 py-2 text-[11px] rounded-lg bg-[#21262d] text-slate-400"
+              className="flex-1 py-2 text-[11px] rounded-lg bg-white text-[#6b7280]"
               onClick={onOpenSettings}
             >
               设置
@@ -196,25 +182,25 @@ export function Onboarding({
           type="button"
           disabled={!ready}
           onClick={onCreate}
-          className="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-left px-5"
+          className="w-full py-4 rounded-2xl bg-[#07c160] hover:bg-[#06ad56] disabled:opacity-40 text-white text-left px-5"
         >
           <span className="block text-base font-semibold">创建群 · 发邀请码</span>
-          <span className="block text-[12px] text-indigo-100/80 mt-1">管理端</span>
+          <span className="block text-[12px] text-white/85 mt-1">管理端</span>
         </button>
         <button
           type="button"
           disabled={!ready}
           onClick={onJoin}
-          className="w-full py-4 rounded-2xl bg-[#21262d] border border-[#30363d] disabled:opacity-40 text-white text-left px-5"
+          className="w-full py-4 rounded-2xl bg-white border border-[#d9d9d9] disabled:opacity-40 text-[#1f2329] text-left px-5"
         >
           <span className="block text-base font-semibold">输入邀请码 · 加入</span>
-          <span className="block text-[12px] text-slate-400 mt-1">成员端</span>
+          <span className="block text-[12px] text-[#6b7280] mt-1">成员端</span>
         </button>
       </div>
 
       {ready && (
         <div className="mx-4 mb-8 text-center">
-          <button type="button" className="text-[11px] text-slate-500 underline" onClick={onOpenSettings}>
+          <button type="button" className="text-[11px] text-[#8a8a8a] underline" onClick={onOpenSettings}>
             改服务器地址
           </button>
         </div>
