@@ -162,6 +162,9 @@ export class SicWsClient {
       this.ws = ws;
 
       ws.onopen = () => {
+        // reconnectNow() may replace a socket before the old WebView event queue
+        // has drained. Never let an obsolete socket change current state.
+        if (this.ws !== ws) return;
         this.reconnectDelay = 1000;
         this.emit("connected", undefined);
         if (!settled) {
@@ -171,6 +174,7 @@ export class SicWsClient {
       };
 
       ws.onmessage = (evt) => {
+        if (this.ws !== ws) return;
         try {
           const data = JSON.parse(String(evt.data));
           const { type, ...payload } = data;
@@ -184,6 +188,7 @@ export class SicWsClient {
       };
 
       ws.onclose = () => {
+        if (this.ws !== ws) return;
         this.emit("disconnected", undefined);
         this.connectPromise = null;
         if (!settled) {
@@ -197,6 +202,7 @@ export class SicWsClient {
       };
 
       ws.onerror = () => {
+        if (this.ws !== ws) return;
         try {
           ws.close();
         } catch {
