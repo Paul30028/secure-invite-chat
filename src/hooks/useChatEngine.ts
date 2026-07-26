@@ -95,7 +95,10 @@ export function useChatEngine() {
   const pendingRotations = useRef<Set<string>>(new Set());
   const seenMembers = useRef<Record<string, Set<string>>>({});
   const memberRegistry = useRef<Record<string, GroupMember[]>>({});
-  const pendingUploads = useRef<Map<string, { groupId: string; chunks: EncryptedFileChunk[]; senderName: string }>>(new Map());
+  const pendingUploads = useRef<Map<string, {
+    groupId: string; chunks: EncryptedFileChunk[]; senderName: string;
+    manifest: FileManifest; keyVersion: number; manifestSent?: boolean;
+  }>>(new Map());
   const receivedChunks = useRef<Map<string, Map<number, EncryptedFileChunk>>>(new Map());
   const fileManifests = useRef<Map<string, { groupId: string; messageId: string; senderDeviceId: string; senderName: string; ts: number; trust: TrustBadge; manifest: FileManifest }>>(new Map());
   const localModeRef = useRef(isLocalMode());
@@ -426,14 +429,34 @@ export function useChatEngine() {
       void tryCompleteReceivedFile(chunk.file_id);
     });
 
-    const offFileStatus = wsClient.on("file_chunk_status", (payload) => {
+    const offFileStatus = wsClient.on("file_chunk_status", async (payload) => {
       const pending = pendingUploads.current.get(payload.file_id);
       if (!pending) return;
       const received = new Set(payload.received_indexes);
-      for (const chunk of pending.chunks) {
-        if (!received.has(chunk.chunkIndex)) wsClient.sendFileChunk({ groupId: pending.groupId, deviceId,
+      const missing = pending.chunks.filter((chunk) => !received.has(chunk.chunkIndex));
+      for (const chunk of missing) {
+        wsClient.sendFileChunk({ groupId: pending.groupId, deviceId,
           senderName: pending.senderName, fileId: chunk.fileId, chunkIndex: chunk.chunkIndex,
           totalChunks: chunk.totalChunks, ciphertext: chunk.ciphertext, iv: chunk.iv, keyVersion: chunk.keyVersion });
+      }
+      if (missing.length) {
+        wsClient.fileChunkStatus(pending.groupId, deviceId, payload.file_id);
+        return;
+      }
+      if (pending.manifestSent) return;
+      const group = getLocalGroups().find((candidate) => candidate.groupId === pending.groupId);
+      if (!group) return;
+      try {
+        const key = await getKey(group, pending.keyVersion);
+        const sealed = await sealEnvelope({ kind: "file", body: JSON.stringify(pending.manifest),
+          senderName: pending.senderName, deviceId, groupId: pending.groupId, keyVersion: pending.keyVersion });
+        const { ciphertext, iv } = await encryptText(key, sealed);
+        wsClient.sendMessage({ groupId: pending.groupId, deviceId, msgType: "file", ciphertext, iv,
+          senderName: "e2ee", keyVersion: pending.keyVersion });
+        pending.manifestSent = true;
+        pendingUploads.current.delete(payload.file_id);
+      } catch {
+        setErrorMsg("文件分块已上传，但发送清单失败；重连后将自动重试");
       }
     });
 
@@ -962,7 +985,8 @@ export function useChatEngine() {
         });
         const manifest: FileManifest = { fileId, name: file.name, mime: file.type || "application/octet-stream",
           size: file.size, totalChunks: chunks.length, sha256 };
-        pendingUploads.current.set(fileId, { groupId, chunks, senderName: group.displayName });
+        pendingUploads.current.set(fileId, { groupId, chunks, senderName: group.displayName,
+          manifest, keyVersion });
         appendMessage(groupId, { id: `tmp_${fileId}`, groupId, senderDeviceId: deviceId,
           senderName: group.displayName, msgType: "file", text: `📎 ${file.name}`, ts: Date.now(), isMine: true,
           file: { name: manifest.name, mime: manifest.mime, size: manifest.size,
@@ -974,12 +998,8 @@ export function useChatEngine() {
             iv: chunk.iv, keyVersion });
           report(70 + Math.round(((index + 1) / chunks.length) * 20), "send", `正在发送 ${index + 1}/${chunks.length} 块`);
         }
-        const sealed = await sealEnvelope({ kind: "file", body: JSON.stringify(manifest), senderName: group.displayName,
-          deviceId, groupId, keyVersion });
-        const { ciphertext, iv } = await encryptText(key, sealed);
-        wsClient.sendMessage({ groupId, deviceId, msgType: "file", ciphertext, iv, senderName: "e2ee", keyVersion });
-        pendingUploads.current.delete(fileId);
-        report(100, "done", "已发送，等待接收方校验");
+        wsClient.fileChunkStatus(groupId, deviceId, fileId);
+        report(95, "send", "等待服务器确认所有分块");
         return;
       }
 
