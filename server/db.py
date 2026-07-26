@@ -88,7 +88,7 @@ def init_db():
             iv TEXT NOT NULL,
             key_version INTEGER NOT NULL DEFAULT 1,
             created_at INTEGER NOT NULL,
-            PRIMARY KEY (file_id, chunk_index)
+            PRIMARY KEY (group_id, file_id, chunk_index)
         );
         CREATE INDEX IF NOT EXISTS idx_file_chunks_group_file ON file_chunks(group_id, file_id, chunk_index);
 
@@ -435,6 +435,43 @@ def save_file_chunk(group_id: str, sender_device_id: str, sender_name: str, file
     )
     conn.commit(); conn.close()
     return chunk
+
+
+def get_file_chunk_metadata(group_id: str, file_id: str) -> dict | None:
+    conn = get_conn()
+    row = conn.execute(
+        """SELECT sender_device_id, total_chunks, key_version
+           FROM file_chunks WHERE group_id=? AND file_id=? LIMIT 1""",
+        (group_id, file_id),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def file_storage_chars(group_id: str, device_id: str | None = None) -> int:
+    conn = get_conn()
+    if device_id is None:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(length(ciphertext)+length(iv)),0) AS used FROM file_chunks WHERE group_id=?",
+            (group_id,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """SELECT COALESCE(SUM(length(ciphertext)+length(iv)),0) AS used
+               FROM file_chunks WHERE group_id=? AND sender_device_id=?""",
+            (group_id, device_id),
+        ).fetchone()
+    conn.close()
+    return int(row["used"])
+
+
+def delete_expired_file_chunks(cutoff_ms: int) -> int:
+    conn = get_conn()
+    cur = conn.execute("DELETE FROM file_chunks WHERE created_at < ?", (cutoff_ms,))
+    conn.commit()
+    deleted = cur.rowcount
+    conn.close()
+    return deleted
 
 
 def list_file_chunks(group_id: str, file_id: str, indexes: list[int] | None = None) -> list[dict]:
