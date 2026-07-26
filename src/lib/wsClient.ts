@@ -4,7 +4,7 @@
  * 只传输密文；加解密在 crypto / envelope。
  */
 
-import { getFallbackWsUrl, getWsUrl } from "./settings";
+import { getWsUrl } from "./settings";
 import { withWireVersion } from "./protocol";
 import {
   buildAuthPayload,
@@ -103,11 +103,10 @@ export class SicWsClient {
   private connectPromise: Promise<void> | null = null;
   private netHooksInstalled = false;
   private authChallenge: string | null = null;
-  private fallback = false;
 
   /** 每次连接读取最新 URL（设置面板可改） */
   private get url(): string {
-    return this.fallback ? getFallbackWsUrl() : getWsUrl();
+    return getWsUrl();
   }
 
   /**
@@ -191,7 +190,6 @@ export class SicWsClient {
           settled = true;
           resolve();
         }
-        if (!this.fallback && target === getWsUrl()) this.fallback = true;
         if (this.shouldReconnect) {
           setTimeout(() => this.connect(), this.reconnectDelay);
           this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, 15000);
