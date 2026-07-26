@@ -34,7 +34,7 @@ function trustLabel(t?: TrustBadge): { text: string; cls: string } | null {
 }
 
 function downloadFile(msg: ChatMessage) {
-  if (!msg.file) return;
+  if (!msg.file?.dataB64) return;
   const bytes = b64ToBytes(msg.file.dataB64);
   const blob = new Blob([bytes], { type: msg.file.mime });
   const url = URL.createObjectURL(blob);
@@ -188,7 +188,7 @@ function FileBubble({ msg, trust }: { msg: ChatMessage; trust: ReturnType<typeof
   const isImage = !!msg.file?.mime?.startsWith("image/");
   const [lightbox, setLightbox] = useState(false);
   const previewUrl = useMemo(() => {
-    if (!msg.file || !isImage) return null;
+    if (!msg.file?.dataB64 || !isImage) return null;
     try {
       const bytes = b64ToBytes(msg.file.dataB64);
       const blob = new Blob([bytes], { type: msg.file.mime });
@@ -262,6 +262,22 @@ function FileBubble({ msg, trust }: { msg: ChatMessage; trust: ReturnType<typeof
 
 export function MessageBubble({ msg }: { msg: ChatMessage }) {
   const trust = trustLabel(msg.trust);
+
+  if (msg.msgType === "file" && msg.file?.transfer && !msg.file.dataB64) {
+    const { received, total, error } = msg.file.transfer;
+    const percent = total ? Math.round((received / total) * 100) : 0;
+    return (
+      <div className={`flex ${msg.isMine ? "justify-end" : "justify-start"} mb-3`}>
+        <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${msg.isMine ? "bg-[#95ec69]" : "bg-white"}`}>
+          <div className="font-medium">📎 {msg.file.name}</div>
+          <div className={`mt-1 text-[11px] ${error ? "text-red-500" : "text-[#6b7280]"}`}>
+            {error || `接收中 ${received}/${total}（${percent}%）`}
+          </div>
+          {!error && <div className="mt-2 h-1.5 rounded-full bg-black/10 overflow-hidden"><div className="h-full bg-[#07c160]" style={{ width: `${percent}%` }} /></div>}
+        </div>
+      </div>
+    );
+  }
 
   if (msg.msgType === "file" && msg.file && !msg.decryptError) {
     return <FileBubble msg={msg} trust={trust} />;

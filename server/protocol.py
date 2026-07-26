@@ -32,6 +32,7 @@ STRING_LIMITS: dict[str, int] = {
     "mode": 16,
     "wrapped_blob": 16_000,
     "delivery_id": 128,
+    "file_id": 128,
 }
 
 
@@ -63,5 +64,12 @@ def validate_message(message: object) -> str | None:
     key_version = message.get("key_version")
     if key_version is not None and (not isinstance(key_version, int) or isinstance(key_version, bool) or key_version < 1):
         return "invalid_field_type"
+
+    for field in ("chunk_index", "total_chunks"):
+        value = message.get(field)
+        if value is not None and (
+            not isinstance(value, int) or isinstance(value, bool) or value < 0
+        ):
+            return "invalid_field_type"
 
     return None

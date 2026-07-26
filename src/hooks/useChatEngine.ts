@@ -8,6 +8,7 @@ import {
   importKeyFromString,
   bytesToB64,
 } from "../lib/crypto";
+import { decryptAndAssembleChunks, fileDataB64, makeEncryptedChunks, type EncryptedFileChunk, type FileManifest } from "../lib/fileChunks";
 import { sealEnvelope, openEnvelope } from "../lib/envelope";
 import { getOrCreateDeviceId } from "../lib/deviceId";
 import {
@@ -94,6 +95,12 @@ export function useChatEngine() {
   const pendingRotations = useRef<Set<string>>(new Set());
   const seenMembers = useRef<Record<string, Set<string>>>({});
   const memberRegistry = useRef<Record<string, GroupMember[]>>({});
+  const pendingUploads = useRef<Map<string, {
+    groupId: string; chunks: EncryptedFileChunk[]; senderName: string;
+    manifest: FileManifest; keyVersion: number; manifestSent?: boolean;
+  }>>(new Map());
+  const receivedChunks = useRef<Map<string, Map<number, EncryptedFileChunk>>>(new Map());
+  const fileManifests = useRef<Map<string, { groupId: string; messageId: string; senderDeviceId: string; senderName: string; ts: number; trust: TrustBadge; manifest: FileManifest }>>(new Map());
   const localModeRef = useRef(isLocalMode());
 
   const [groups, setGroups] = useState<LocalGroup[]>(() => getLocalGroups());
@@ -194,8 +201,27 @@ export function useChatEngine() {
             name: string;
             mime: string;
             size: number;
-            dataB64: string;
+            dataB64?: string;
+            fileId?: string;
+            totalChunks?: number;
+            sha256?: string;
           };
+          // Legacy whole-file messages remain readable. New manifests only carry
+          // metadata; encrypted chunks are fetched independently.
+          if (meta.fileId && meta.totalChunks && meta.sha256) {
+            const manifest: FileManifest = { fileId: meta.fileId, name: meta.name, mime: meta.mime,
+              size: meta.size, totalChunks: meta.totalChunks, sha256: meta.sha256 };
+            fileManifests.current.set(meta.fileId, { groupId: m.group_id, messageId: m.id,
+              senderDeviceId, senderName, ts, trust: badge, manifest });
+            setTimeout(() => void tryCompleteReceivedFile(meta.fileId!), 0);
+            if (!localModeRef.current) wsClient.syncFileChunks(m.group_id, deviceId, meta.fileId);
+            return {
+              id: m.id, groupId: m.group_id, senderDeviceId, senderName, msgType: "file",
+              text: `📎 ${meta.name}（接收中 0/${meta.totalChunks}）`, ts,
+              isMine: senderDeviceId === deviceId || m.sender_device_id === deviceId,
+              file: { name: meta.name, mime: meta.mime, size: meta.size, transfer: { received: 0, total: meta.totalChunks } }, trust: badge,
+            };
+          }
           return {
             id: m.id,
             groupId: m.group_id,
@@ -205,7 +231,7 @@ export function useChatEngine() {
             text: `📎 ${meta.name}`,
             ts,
             isMine: senderDeviceId === deviceId || m.sender_device_id === deviceId,
-            file: meta,
+            file: meta as { name: string; mime: string; size: number; dataB64: string },
             trust: badge,
           };
         }
@@ -269,6 +295,9 @@ export function useChatEngine() {
           setTimeout(() => setErrorMsg(null), 5000);
         });
       });
+      for (const [fileId, upload] of pendingUploads.current) {
+        wsClient.fileChunkStatus(upload.groupId, deviceId, fileId);
+      }
     });
     const offDisconnected = wsClient.on("disconnected", () => {
       if (!localModeRef.current) setStatus("offline");
@@ -389,6 +418,46 @@ export function useChatEngine() {
     const offCodeRegen = wsClient.on("code_regenerated", (payload) => {
       updateLocalGroup(payload.group_id, { lastKnownInviteCode: payload.invite_code });
       setGroups(getLocalGroups());
+    });
+
+    const offFileChunk = wsClient.on("file_chunk", (chunk) => {
+      const map = receivedChunks.current.get(chunk.file_id) || new Map<number, EncryptedFileChunk>();
+      map.set(chunk.chunk_index, { fileId: chunk.file_id, chunkIndex: chunk.chunk_index,
+        totalChunks: chunk.total_chunks, ciphertext: chunk.ciphertext, iv: chunk.iv,
+        keyVersion: chunk.key_version || 1 });
+      receivedChunks.current.set(chunk.file_id, map);
+      void tryCompleteReceivedFile(chunk.file_id);
+    });
+
+    const offFileStatus = wsClient.on("file_chunk_status", async (payload) => {
+      const pending = pendingUploads.current.get(payload.file_id);
+      if (!pending) return;
+      const received = new Set(payload.received_indexes);
+      const missing = pending.chunks.filter((chunk) => !received.has(chunk.chunkIndex));
+      for (const chunk of missing) {
+        wsClient.sendFileChunk({ groupId: pending.groupId, deviceId,
+          senderName: pending.senderName, fileId: chunk.fileId, chunkIndex: chunk.chunkIndex,
+          totalChunks: chunk.totalChunks, ciphertext: chunk.ciphertext, iv: chunk.iv, keyVersion: chunk.keyVersion });
+      }
+      if (missing.length) {
+        wsClient.fileChunkStatus(pending.groupId, deviceId, payload.file_id);
+        return;
+      }
+      if (pending.manifestSent) return;
+      const group = getLocalGroups().find((candidate) => candidate.groupId === pending.groupId);
+      if (!group) return;
+      try {
+        const key = await getKey(group, pending.keyVersion);
+        const sealed = await sealEnvelope({ kind: "file", body: JSON.stringify(pending.manifest),
+          senderName: pending.senderName, deviceId, groupId: pending.groupId, keyVersion: pending.keyVersion });
+        const { ciphertext, iv } = await encryptText(key, sealed);
+        wsClient.sendMessage({ groupId: pending.groupId, deviceId, msgType: "file", ciphertext, iv,
+          senderName: "e2ee", keyVersion: pending.keyVersion });
+        pending.manifestSent = true;
+        pendingUploads.current.delete(payload.file_id);
+      } catch {
+        setErrorMsg("文件分块已上传，但发送清单失败；重连后将自动重试");
+      }
     });
 
     const sendCurrentKey = async (group: LocalGroup, targets: GroupMember[], version = group.keyVersion || 1) => {
@@ -534,6 +603,8 @@ export function useChatEngine() {
       offResumed();
       offHistory();
       offMessage();
+      offFileChunk();
+      offFileStatus();
       offCodeRegen();
       offMembers();
       offMemberKicked();
@@ -902,6 +973,36 @@ export function useChatEngine() {
         onProgress?.({ percent, stage, label });
       };
 
+      // Network transfers use one AES-GCM operation per 256 KiB piece. The old
+      // one-message implementation below is retained only for local UI demo mode.
+      if (!localModeRef.current) {
+        const keyVersion = group.keyVersion || 1;
+        const key = await getKey(group, keyVersion);
+        const fileId = randomUUID();
+        report(5, "read", "正在分块读取文件");
+        const { chunks, sha256 } = await makeEncryptedChunks(file, key, fileId, keyVersion, (done, total) => {
+          report(5 + Math.round((done / total) * 65), "encrypt", `正在加密 ${done}/${total} 块`);
+        });
+        const manifest: FileManifest = { fileId, name: file.name, mime: file.type || "application/octet-stream",
+          size: file.size, totalChunks: chunks.length, sha256 };
+        pendingUploads.current.set(fileId, { groupId, chunks, senderName: group.displayName,
+          manifest, keyVersion });
+        appendMessage(groupId, { id: `tmp_${fileId}`, groupId, senderDeviceId: deviceId,
+          senderName: group.displayName, msgType: "file", text: `📎 ${file.name}`, ts: Date.now(), isMine: true,
+          file: { name: manifest.name, mime: manifest.mime, size: manifest.size,
+            transfer: { received: 0, total: manifest.totalChunks } }, trust: "verified" });
+        for (let index = 0; index < chunks.length; index += 1) {
+          const chunk = chunks[index]!;
+          wsClient.sendFileChunk({ groupId, deviceId, senderName: group.displayName, fileId,
+            chunkIndex: chunk.chunkIndex, totalChunks: chunk.totalChunks, ciphertext: chunk.ciphertext,
+            iv: chunk.iv, keyVersion });
+          report(70 + Math.round(((index + 1) / chunks.length) * 20), "send", `正在发送 ${index + 1}/${chunks.length} 块`);
+        }
+        wsClient.fileChunkStatus(groupId, deviceId, fileId);
+        report(95, "send", "等待服务器确认所有分块");
+        return;
+      }
+
       report(5, "read", "读取文件…");
       await new Promise((r) => setTimeout(r, 16));
       const buf = await file.arrayBuffer();
@@ -1011,6 +1112,45 @@ export function useChatEngine() {
     }
     wsClient.regenerateCode(groupId, group.adminToken);
   }, []);
+
+  const updateMessage = useCallback((groupId: string, id: string, patch: Partial<ChatMessage>) => {
+    setMessages((prev) => ({
+      ...prev,
+      [groupId]: (prev[groupId] || []).map((message) => message.id === id ? { ...message, ...patch } : message),
+    }));
+  }, []);
+
+  async function tryCompleteReceivedFile(fileId: string) {
+    const entry = fileManifests.current.get(fileId);
+    if (!entry) return;
+    const chunks = receivedChunks.current.get(fileId);
+    const received = chunks?.size || 0;
+    if (received < entry.manifest.totalChunks) {
+      updateMessage(entry.groupId, entry.messageId, {
+        file: { name: entry.manifest.name, mime: entry.manifest.mime, size: entry.manifest.size,
+          transfer: { received, total: entry.manifest.totalChunks } },
+      });
+      return;
+    }
+    const group = getLocalGroups().find((candidate) => candidate.groupId === entry.groupId);
+    if (!group || !chunks) return;
+    try {
+      const key = await getKey(group, [...chunks.values()][0]?.keyVersion || group.keyVersion || 1);
+      const bytes = await decryptAndAssembleChunks([...chunks.values()], key, entry.manifest.sha256);
+      updateMessage(entry.groupId, entry.messageId, {
+        msgType: "file", text: `📎 ${entry.manifest.name}`,
+        file: { name: entry.manifest.name, mime: entry.manifest.mime, size: entry.manifest.size, dataB64: fileDataB64(bytes) },
+        decryptError: false,
+      });
+      receivedChunks.current.delete(fileId);
+    } catch {
+      updateMessage(entry.groupId, entry.messageId, {
+        msgType: "file", text: "[文件损坏/传输不完整]", decryptError: true,
+        file: { name: entry.manifest.name, mime: entry.manifest.mime, size: entry.manifest.size,
+          transfer: { received, total: entry.manifest.totalChunks, error: "文件损坏/传输不完整" } },
+      });
+    }
+  }
 
   const revokeInvite = useCallback((groupId: string) => { const g = getLocalGroups().find(x => x.groupId === groupId); if (g?.adminToken && !localModeRef.current) wsClient.revokeInvite(groupId, g.adminToken); }, []);
   const setInviteExpiry = useCallback((groupId: string, hours: number | null) => { const g = getLocalGroups().find(x => x.groupId === groupId); if (g?.adminToken && !localModeRef.current) wsClient.setInviteExpiry(groupId, g.adminToken, hours ? Math.floor(Date.now() / 1000) + hours * 3600 : null); }, []);

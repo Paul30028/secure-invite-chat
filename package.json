@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "vitest run && py -m unittest server.tests.test_auth server.tests.test_history server.tests.test_protocol server.tests.test_rate_limit server.tests.test_key_deliveries",
+    "test": "npm run test:client && npm run test:server",
+    "test:client": "vitest run",
+    "test:server": "node scripts/run-server-tests.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "server": "cd server && python server.py",
