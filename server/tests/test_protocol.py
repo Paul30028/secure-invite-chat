@@ -42,6 +42,26 @@ class RelayProtocolTests(unittest.TestCase):
             "invalid_field_length",
         )
 
+    def test_validates_file_transfer_metadata(self):
+        self.assertIsNone(
+            validate_message(
+                {
+                    "type": "file_chunk",
+                    "file_id": "file-1",
+                    "chunk_index": 0,
+                    "total_chunks": 3,
+                }
+            )
+        )
+        self.assertEqual(
+            validate_message({"type": "file_chunk", "file_id": "x" * 129}),
+            "invalid_field_length",
+        )
+        self.assertEqual(
+            validate_message({"type": "file_chunk", "chunk_index": True}),
+            "invalid_field_type",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
