@@ -34,26 +34,31 @@ public class WebSocketConnectivityTest {
                   }
                 },
                 "SicDiagnostic");
-            webView.evaluateJavascript(
-                "(() => {"
-                    + "const ws = new WebSocket('"
-                    + ENDPOINT
-                    + "');"
-                    + "const timer = setTimeout(() => {"
-                    + "  try { ws.close(); } catch (_) {}"
-                    + "  SicDiagnostic.report('timeout');"
-                    + "}, 15000);"
-                    + "ws.onopen = () => {"
-                    + "  clearTimeout(timer);"
-                    + "  SicDiagnostic.report('open');"
-                    + "  ws.close();"
-                    + "};"
-                    + "ws.onerror = () => {"
-                    + "  clearTimeout(timer);"
-                    + "  SicDiagnostic.report('error:' + ws.readyState);"
-                    + "};"
-                    + "})();",
-                null);
+            // addJavascriptInterface becomes visible to JavaScript after the next page load.
+            webView.reload();
+            webView.postDelayed(
+                () ->
+                    webView.evaluateJavascript(
+                        "(() => {"
+                            + "const ws = new WebSocket('"
+                            + ENDPOINT
+                            + "');"
+                            + "const timer = setTimeout(() => {"
+                            + "  try { ws.close(); } catch (_) {}"
+                            + "  SicDiagnostic.report('timeout');"
+                            + "}, 15000);"
+                            + "ws.onopen = () => {"
+                            + "  clearTimeout(timer);"
+                            + "  SicDiagnostic.report('open');"
+                            + "  ws.close();"
+                            + "};"
+                            + "ws.onerror = () => {"
+                            + "  clearTimeout(timer);"
+                            + "  SicDiagnostic.report('error:' + ws.readyState);"
+                            + "};"
+                            + "})();",
+                        null),
+                5000);
           });
 
       if (!completed.await(25, TimeUnit.SECONDS)) {
