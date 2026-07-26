@@ -29,6 +29,8 @@ HOST = os.environ.get("SIC_HOST", "0.0.0.0")
 PORT = _positive_int_env("SIC_PORT", 8765)
 PUBLIC_URL = os.environ.get("SIC_PUBLIC_URL", "").strip()
 MAX_WS_MESSAGE_BYTES = _positive_int_env("SIC_MAX_WS_MESSAGE_BYTES", 6 * 1024 * 1024)
+# 256 KiB raw AES-GCM chunks become roughly 350 KiB base64/JSON on the wire.
+MAX_FILE_CHUNK_B64 = _positive_int_env("SIC_MAX_FILE_CHUNK_B64", 512 * 1024)
 # 每连接的密文消息限流。边缘代理仍需承担跨连接/IP 的 DDoS 防护。
 MESSAGE_RATE_PER_MINUTE = _positive_int_env("SIC_MESSAGE_RATE_PER_MINUTE", 60)
 MESSAGE_RATE_BURST = _positive_int_env("SIC_MESSAGE_RATE_BURST", 12)

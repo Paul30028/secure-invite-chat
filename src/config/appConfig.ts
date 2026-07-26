@@ -36,7 +36,7 @@ export const PROTOCOL = {
  * 生产中国区：在 .env 或 CI 中设置 VITE_WS_URL=ws://x.x.x.x:8765
  */
 /** Managed service endpoint; users never enter hosts or ports. */
-export const DEFAULT_WS_URL = "wss://secureinchat.com";
+export const DEFAULT_WS_URL = "wss://ws.secureinchat.com";
 export const FALLBACK_WS_URL = "ws://212.135.212.22:8765";
 
 /**
@@ -55,7 +55,8 @@ export const FEATURES = {
 } as const;
 
 export const LIMITS = {
-  maxFileBytes: 4 * 1024 * 1024,
+  // 256 KiB chunks keep WebSocket frames modest while covering normal team files.
+  maxFileBytes: 50 * 1024 * 1024,
   maxCachedMessages: 80,
 } as const;
 

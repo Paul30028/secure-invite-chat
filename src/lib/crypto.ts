@@ -16,9 +16,14 @@ const PBKDF2_ITERATIONS = 100_000;
 
 function toB64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin);
+  // Avoid quadratic string concatenation for encrypted file chunks. 32 KiB is
+  // safe for apply() in browsers and keeps peak memory bounded on mobile.
+  const parts: string[] = [];
+  for (let start = 0; start < bytes.length; start += 0x8000) {
+    const part = bytes.subarray(start, Math.min(start + 0x8000, bytes.length));
+    parts.push(String.fromCharCode(...part));
+  }
+  return btoa(parts.join(""));
 }
 
 function fromB64(b64: string): Uint8Array {

@@ -27,6 +27,8 @@ export type FileMeta = {
   name: string;
   mime: string;
   size: number;
+  /** Present until all encrypted chunks are assembled and hash-checked. */
+  transfer?: { received: number; total: number; error?: string };
 };
 
 export type TrustBadge =
@@ -49,6 +51,6 @@ export type ChatMessage = {
   decryptError?: boolean;
   /** 验签失败的密文被隔离，不得按普通聊天内容渲染。 */
   blocked?: boolean;
-  file?: FileMeta & { dataB64: string };
+  file?: FileMeta & { dataB64?: string };
   trust?: TrustBadge;
 };

@@ -24,6 +24,18 @@ export type IncomingMessage = {
   ts: number;
 };
 
+export type IncomingFileChunk = {
+  group_id: string;
+  sender_device_id: string;
+  sender_name: string;
+  file_id: string;
+  chunk_index: number;
+  total_chunks: number;
+  ciphertext: string;
+  iv: string;
+  key_version?: number;
+};
+
 export type ServerMember = {
   device_id: string;
   display_name: string;
@@ -56,6 +68,8 @@ type ServerEventMap = {
     next_before_id?: string;
   };
   message: IncomingMessage;
+  file_chunk: IncomingFileChunk;
+  file_chunk_status: { group_id: string; file_id: string; received_indexes: number[] };
   code_regenerated: { group_id: string; invite_code: string };
   members: { group_id: string; members: ServerMember[] };
   member_kicked: { group_id: string; target_device_id: string };
@@ -387,6 +401,25 @@ export class SicWsClient {
       admin_token: adminToken,
       target_device_id: targetDeviceId,
     });
+  }
+
+  sendFileChunk(params: {
+    groupId: string; deviceId: string; senderName: string; fileId: string;
+    chunkIndex: number; totalChunks: number; ciphertext: string; iv: string; keyVersion: number;
+  }) {
+    this.send({ type: "file_chunk", group_id: params.groupId, device_id: params.deviceId,
+      sender_name: params.senderName, file_id: params.fileId, chunk_index: params.chunkIndex,
+      total_chunks: params.totalChunks, ciphertext: params.ciphertext, iv: params.iv,
+      key_version: params.keyVersion });
+  }
+
+  fileChunkStatus(groupId: string, deviceId: string, fileId: string) {
+    this.send({ type: "file_chunk_status", group_id: groupId, device_id: deviceId, file_id: fileId });
+  }
+
+  syncFileChunks(groupId: string, deviceId: string, fileId: string, missingIndexes?: number[]) {
+    this.send({ type: "sync_file_chunks", group_id: groupId, device_id: deviceId, file_id: fileId,
+      ...(missingIndexes?.length ? { missing_indexes: missingIndexes } : {}) });
   }
 
   revokeInvite(groupId: string, adminToken: string) { this.send({ type: "revoke_invite", group_id: groupId, admin_token: adminToken }); }

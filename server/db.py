@@ -75,6 +75,23 @@ def init_db():
 
         CREATE INDEX IF NOT EXISTS idx_messages_group_ts ON messages(group_id, ts);
 
+        -- File payloads deliberately live outside messages: a 50 MB upload must not
+        -- turn normal chat-history queries into thousands of rows.
+        CREATE TABLE IF NOT EXISTS file_chunks (
+            file_id TEXT NOT NULL,
+            group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            sender_device_id TEXT NOT NULL,
+            sender_name TEXT NOT NULL,
+            chunk_index INTEGER NOT NULL,
+            total_chunks INTEGER NOT NULL,
+            ciphertext TEXT NOT NULL,
+            iv TEXT NOT NULL,
+            key_version INTEGER NOT NULL DEFAULT 1,
+            created_at INTEGER NOT NULL,
+            PRIMARY KEY (file_id, chunk_index)
+        );
+        CREATE INDEX IF NOT EXISTS idx_file_chunks_group_file ON file_chunks(group_id, file_id, chunk_index);
+
         CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS muted_members (group_id TEXT NOT NULL, device_id TEXT NOT NULL, PRIMARY KEY(group_id, device_id));
         """
@@ -397,6 +414,48 @@ def get_history_page(
         oldest = page_desc[-1]
         next_cursor = (oldest["ts"], oldest["id"])
     return [dict(row) for row in reversed(page_desc)], has_more, next_cursor
+
+
+def save_file_chunk(group_id: str, sender_device_id: str, sender_name: str, file_id: str,
+                    chunk_index: int, total_chunks: int, ciphertext: str, iv: str,
+                    key_version: int) -> dict:
+    """Persist opaque encrypted content. Duplicate chunks are harmless retries."""
+    chunk = {
+        "group_id": group_id, "sender_device_id": sender_device_id,
+        "sender_name": sender_name, "file_id": file_id, "chunk_index": chunk_index,
+        "total_chunks": total_chunks, "ciphertext": ciphertext, "iv": iv,
+        "key_version": key_version, "created_at": int(time.time() * 1000),
+    }
+    conn = get_conn()
+    conn.execute(
+        """INSERT OR IGNORE INTO file_chunks
+           (file_id,group_id,sender_device_id,sender_name,chunk_index,total_chunks,ciphertext,iv,key_version,created_at)
+           VALUES (:file_id,:group_id,:sender_device_id,:sender_name,:chunk_index,:total_chunks,:ciphertext,:iv,:key_version,:created_at)""",
+        chunk,
+    )
+    conn.commit(); conn.close()
+    return chunk
+
+
+def list_file_chunks(group_id: str, file_id: str, indexes: list[int] | None = None) -> list[dict]:
+    conn = get_conn()
+    if indexes:
+        placeholders = ",".join("?" for _ in indexes)
+        rows = conn.execute(
+            f"SELECT * FROM file_chunks WHERE group_id=? AND file_id=? AND chunk_index IN ({placeholders}) ORDER BY chunk_index",
+            [group_id, file_id, *indexes],
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM file_chunks WHERE group_id=? AND file_id=? ORDER BY chunk_index", (group_id, file_id)).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def file_chunk_indexes(group_id: str, file_id: str) -> list[int]:
+    conn = get_conn()
+    rows = conn.execute("SELECT chunk_index FROM file_chunks WHERE group_id=? AND file_id=? ORDER BY chunk_index", (group_id, file_id)).fetchall()
+    conn.close()
+    return [int(row["chunk_index"]) for row in rows]
 
 
 def list_member_group_ids(device_id: str):

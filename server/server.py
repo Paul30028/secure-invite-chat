@@ -598,6 +598,64 @@ async def handle_connection(ws):
                 )
                 await broadcast(group_id, {"type": "message", **saved})
 
+            elif mtype == "file_chunk":
+                # Chunks are opaque E2EE bytes. The server only validates routing
+                # metadata and never decodes ciphertext, IV, hash, or file contents.
+                group_id = msg.get("group_id")
+                device_id = msg.get("device_id")
+                file_id = msg.get("file_id")
+                chunk_index = msg.get("chunk_index")
+                total_chunks = msg.get("total_chunks")
+                ciphertext = msg.get("ciphertext")
+                iv = msg.get("iv")
+                key_version = msg.get("key_version", 1)
+                sender_name = msg.get("sender_name") or "成员"
+                if db.is_maintenance() and not db.is_admin_member(group_id, device_id):
+                    await send_error(ws, "maintenance_mode")
+                    continue
+                if db.is_member_muted(group_id, device_id):
+                    await send_error(ws, "member_muted")
+                    continue
+                if (not all(isinstance(value, str) and value for value in (group_id, device_id, file_id, ciphertext, iv))
+                        or not isinstance(chunk_index, int) or not isinstance(total_chunks, int)
+                        or not isinstance(key_version, int) or chunk_index < 0 or total_chunks <= 0 or chunk_index >= total_chunks):
+                    await send_error(ws, "invalid_file_chunk")
+                    continue
+                if not db.is_member(group_id, device_id):
+                    await send_error(ws, "not_a_member")
+                    continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
+                    await send_error(ws, "not_authenticated")
+                    continue
+                if len(ciphertext) > cfg.MAX_FILE_CHUNK_B64:
+                    await send_error(ws, "file_chunk_too_large")
+                    continue
+                saved = db.save_file_chunk(group_id, device_id, sender_name, file_id, chunk_index, total_chunks, ciphertext, iv, key_version)
+                await broadcast(group_id, {"type": "file_chunk", **saved})
+
+            elif mtype == "file_chunk_status":
+                group_id = msg.get("group_id"); device_id = msg.get("device_id"); file_id = msg.get("file_id")
+                if not all(isinstance(value, str) and value for value in (group_id, device_id, file_id)) or not db.is_member(group_id, device_id):
+                    await send_error(ws, "not_a_member")
+                    continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
+                    await send_error(ws, "not_authenticated")
+                    continue
+                await ws.send(json.dumps({"type": "file_chunk_status", "group_id": group_id, "file_id": file_id, "received_indexes": db.file_chunk_indexes(group_id, file_id)}))
+
+            elif mtype == "sync_file_chunks":
+                group_id = msg.get("group_id"); device_id = msg.get("device_id"); file_id = msg.get("file_id")
+                indexes = msg.get("missing_indexes")
+                if not all(isinstance(value, str) and value for value in (group_id, device_id, file_id)) or not db.is_member(group_id, device_id):
+                    await send_error(ws, "not_a_member")
+                    continue
+                if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
+                    await send_error(ws, "not_authenticated")
+                    continue
+                requested = indexes if isinstance(indexes, list) and all(isinstance(i, int) and i >= 0 for i in indexes) else None
+                for chunk in db.list_file_chunks(group_id, file_id, requested):
+                    await ws.send(json.dumps({"type": "file_chunk", **chunk}))
+
             elif mtype == "regenerate_code":
                 if not action_rate_allowed(ws):
                     await send_error(ws, "rate_limited")
