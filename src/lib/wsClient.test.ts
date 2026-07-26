@@ -70,4 +70,26 @@ describe("SicWsClient reconnect", () => {
     expect(FakeWebSocket.instances).toHaveLength(2);
     expect(FakeWebSocket.instances[1]!.url).toBe(DEFAULT_WS_URL);
   });
+
+  it("ignores a delayed close event from a socket replaced by reconnectNow", async () => {
+    const client = new SicWsClient();
+    let connected = 0;
+    let disconnected = 0;
+    client.on("connected", () => connected++);
+    client.on("disconnected", () => disconnected++);
+
+    void client.connect();
+    const obsolete = FakeWebSocket.instances[0]!;
+
+    void client.reconnectNow();
+    const current = FakeWebSocket.instances[1]!;
+    current.open();
+    obsolete.closeFromServer();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(client.isOpen()).toBe(true);
+    expect(connected).toBe(1);
+    expect(disconnected).toBe(0);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+  });
 });
