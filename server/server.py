@@ -44,6 +44,8 @@ CONNECTION_GROUPS: dict[object, set] = {}
 CONNECTION_CHALLENGES: dict[object, str] = {}
 # websocket -> token bucket; this limits one authenticated transport connection.
 MESSAGE_LIMITERS: dict[object, TokenBucket] = {}
+FILE_LIMITERS: dict[object, TokenBucket] = {}
+FILE_SYNC_LIMITERS: dict[object, TokenBucket] = {}
 
 
 async def register(group_id: str, ws, device_id: str):
@@ -97,6 +99,26 @@ def action_rate_allowed(ws) -> bool:
     return bucket.allow()
 
 
+def _bucket_allowed(store: dict[object, TokenBucket], ws, per_minute: int, burst: int) -> bool:
+    bucket = store.get(ws)
+    if bucket is None:
+        bucket = TokenBucket(per_minute=per_minute, burst=burst)
+        store[ws] = bucket
+    return bucket.allow()
+
+
+def file_rate_allowed(ws) -> bool:
+    import config as cfg
+    return _bucket_allowed(FILE_LIMITERS, ws, cfg.FILE_RATE_PER_MINUTE, cfg.FILE_RATE_BURST)
+
+
+def file_sync_rate_allowed(ws) -> bool:
+    import config as cfg
+    return _bucket_allowed(
+        FILE_SYNC_LIMITERS, ws, cfg.FILE_SYNC_RATE_PER_MINUTE, cfg.FILE_SYNC_RATE_BURST
+    )
+
+
 def is_registered(ws, group_id: str, device_id: str) -> bool:
     return (ws, device_id) in GROUP_CONNECTIONS.get(group_id, set())
 
@@ -129,6 +151,8 @@ async def unregister_all(ws):
     CONNECTION_CHALLENGES.pop(ws, None)
     MESSAGE_LIMITERS.pop(ws, None)
     ACTION_LIMITERS.pop(ws, None)
+    FILE_LIMITERS.pop(ws, None)
+    FILE_SYNC_LIMITERS.pop(ws, None)
 
 
 def online_device_ids(group_id: str) -> set:
@@ -618,7 +642,10 @@ async def handle_connection(ws):
                     continue
                 if (not all(isinstance(value, str) and value for value in (group_id, device_id, file_id, ciphertext, iv))
                         or not isinstance(chunk_index, int) or not isinstance(total_chunks, int)
-                        or not isinstance(key_version, int) or chunk_index < 0 or total_chunks <= 0 or chunk_index >= total_chunks):
+                        or isinstance(chunk_index, bool) or isinstance(total_chunks, bool)
+                        or not isinstance(key_version, int) or isinstance(key_version, bool)
+                        or chunk_index < 0 or total_chunks <= 0 or chunk_index >= total_chunks
+                        or total_chunks > cfg.MAX_FILE_CHUNKS or len(file_id) > cfg.MAX_FILE_ID_CHARS):
                     await send_error(ws, "invalid_file_chunk")
                     continue
                 if not db.is_member(group_id, device_id):
@@ -629,6 +656,29 @@ async def handle_connection(ws):
                     continue
                 if len(ciphertext) > cfg.MAX_FILE_CHUNK_B64:
                     await send_error(ws, "file_chunk_too_large")
+                    continue
+                if not file_rate_allowed(ws):
+                    await send_error(ws, "file_rate_limited")
+                    continue
+                if chunk_index == 0:
+                    db.delete_expired_file_chunks(
+                        int(__import__("time").time() * 1000)
+                        - cfg.FILE_CHUNK_RETENTION_SECONDS * 1000
+                    )
+                existing = db.get_file_chunk_metadata(group_id, file_id)
+                if existing and (
+                    existing["sender_device_id"] != device_id
+                    or existing["total_chunks"] != total_chunks
+                    or existing["key_version"] != key_version
+                ):
+                    await send_error(ws, "file_metadata_mismatch")
+                    continue
+                projected = len(ciphertext) + len(iv)
+                if (
+                    db.file_storage_chars(group_id) + projected > cfg.MAX_GROUP_FILE_STORAGE_B64
+                    or db.file_storage_chars(group_id, device_id) + projected > cfg.MAX_DEVICE_FILE_STORAGE_B64
+                ):
+                    await send_error(ws, "file_storage_quota_exceeded")
                     continue
                 saved = db.save_file_chunk(group_id, device_id, sender_name, file_id, chunk_index, total_chunks, ciphertext, iv, key_version)
                 await broadcast(group_id, {"type": "file_chunk", **saved})
@@ -641,6 +691,9 @@ async def handle_connection(ws):
                 if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
                     await send_error(ws, "not_authenticated")
                     continue
+                if not file_sync_rate_allowed(ws):
+                    await send_error(ws, "file_sync_rate_limited")
+                    continue
                 await ws.send(json.dumps({"type": "file_chunk_status", "group_id": group_id, "file_id": file_id, "received_indexes": db.file_chunk_indexes(group_id, file_id)}))
 
             elif mtype == "sync_file_chunks":
@@ -652,7 +705,17 @@ async def handle_connection(ws):
                 if cfg.REQUIRE_DEVICE_AUTH and not is_registered(ws, group_id, device_id):
                     await send_error(ws, "not_authenticated")
                     continue
-                requested = indexes if isinstance(indexes, list) and all(isinstance(i, int) and i >= 0 for i in indexes) else None
+                if not file_sync_rate_allowed(ws):
+                    await send_error(ws, "file_sync_rate_limited")
+                    continue
+                if indexes is not None and (
+                    not isinstance(indexes, list)
+                    or len(indexes) > cfg.MAX_FILE_SYNC_INDEXES
+                    or not all(isinstance(i, int) and not isinstance(i, bool) and i >= 0 for i in indexes)
+                ):
+                    await send_error(ws, "invalid_missing_indexes")
+                    continue
+                requested = indexes
                 for chunk in db.list_file_chunks(group_id, file_id, requested):
                     await ws.send(json.dumps({"type": "file_chunk", **chunk}))
 
