@@ -22,9 +22,16 @@ type ActiveCall = {
   localName: string;
 };
 
+const turnUrl = import.meta.env.VITE_TURN_URL?.trim();
+const turnUsername = import.meta.env.VITE_TURN_USERNAME?.trim();
+const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL?.trim();
 const rtcConfig: RTCConfiguration = {
-  // 局域网测试会使用 host candidates。部署公网版本时在设置中配置 TURN。
-  iceServers: [],
+  iceServers: [
+    { urls: "stun:stun.cloudflare.com:3478" },
+    ...(turnUrl && turnUsername && turnCredential
+      ? [{ urls: turnUrl, username: turnUsername, credential: turnCredential }]
+      : []),
+  ],
 };
 
 export function useCallEngine(deviceId: string) {

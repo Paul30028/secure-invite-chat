@@ -1,0 +1,39 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "codex/final-android-ui"
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - run: npm ci
+      - run: npm run test:client
+      - run: npm run build
+      - run: npx cap sync android
+      - run: chmod +x android/gradlew
+      - run: ./gradlew assembleDebug
+        working-directory: android
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk secure-invite-chat-v0.2.0.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secure-invite-chat-v0.2.0
+          path: secure-invite-chat-v0.2.0.apk
+          if-no-files-found: error
