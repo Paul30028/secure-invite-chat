@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <rect width="390" height="844" fill="#eef2ef"/>
+  <rect width="390" height="88" fill="#fff"/><line x1="0" y1="88" x2="390" y2="88" stroke="#dbe4df"/>
+  <text x="20" y="61" fill="#46574f" font-size="28">‹</text><text x="195" y="60" text-anchor="middle" fill="#20312c" font-family="Noto Sans CJK SC,sans-serif" font-size="18" font-weight="700">设置</text><text x="360" y="60" text-anchor="end" fill="#2f6b57" font-family="Noto Sans CJK SC,sans-serif" font-size="13" font-weight="700">完成</text>
+  <rect x="16" y="108" width="358" height="82" rx="20" fill="#fff"/>
+  <circle cx="58" cy="149" r="27" fill="#e7f1ec"/><text x="58" y="158" text-anchor="middle" fill="#2f6b57" font-family="Noto Sans CJK SC,sans-serif" font-size="24" font-weight="700">麦</text>
+  <text x="96" y="143" fill="#20312c" font-family="Noto Sans CJK SC,sans-serif" font-size="16" font-weight="700">保罗</text><text x="96" y="166" fill="#849087" font-family="Noto Sans CJK SC,sans-serif" font-size="10">设备本地身份 · 点击编辑</text><text x="350" y="157" text-anchor="end" fill="#9ba8a2" font-size="22">›</text>
+  <g font-family="Noto Sans CJK SC,sans-serif">
+    <rect x="16" y="208" width="358" height="132" rx="18" fill="#fff"/>
+    <rect x="30" y="223" width="36" height="36" rx="11" fill="#e7f1ec"/><text x="48" y="248" text-anchor="middle" fill="#2f6b57" font-size="20">☺</text><text x="78" y="239" fill="#26372f" font-size="13" font-weight="700">个人资料</text><text x="78" y="257" fill="#8a9790" font-size="10">头像、昵称</text><text x="350" y="248" text-anchor="end" fill="#9ba8a2" font-size="22">›</text>
+    <line x1="78" y1="273" x2="354" y2="273" stroke="#edf1ef"/>
+    <rect x="30" y="288" width="36" height="36" rx="11" fill="#f8eee0"/><text x="48" y="313" text-anchor="middle" fill="#b17a32" font-size="19">◉</text><text x="78" y="304" fill="#26372f" font-size="13" font-weight="700">消息与来电通知</text><text x="78" y="322" fill="#8a9790" font-size="10">提示音、来电提醒</text><text x="350" y="313" text-anchor="end" fill="#9ba8a2" font-size="22">›</text>
+    <rect x="16" y="358" width="358" height="197" rx="18" fill="#fff"/>
+    <rect x="30" y="373" width="36" height="36" rx="11" fill="#e8edf5"/><text x="48" y="398" text-anchor="middle" fill="#506a91" font-size="20">♢</text><text x="78" y="389" fill="#26372f" font-size="13" font-weight="700">隐私与安全</text><text x="78" y="407" fill="#8a9790" font-size="10">安全码、已读状态、屏幕保护</text><text x="350" y="398" text-anchor="end" fill="#9ba8a2" font-size="22">›</text>
+    <line x1="78" y1="423" x2="354" y2="423" stroke="#edf1ef"/>
+    <rect x="30" y="438" width="36" height="36" rx="11" fill="#efe8f5"/><text x="48" y="463" text-anchor="middle" fill="#76598c" font-size="19">▧</text><text x="78" y="454" fill="#26372f" font-size="13" font-weight="700">聊天与媒体</text><text x="78" y="472" fill="#8a9790" font-size="10">文件、图片和视频设置</text><text x="350" y="463" text-anchor="end" fill="#9ba8a2" font-size="22">›</text>
+    <line x1="78" y1="488" x2="354" y2="488" stroke="#edf1ef"/>
+    <rect x="30" y="503" width="36" height="36" rx="11" fill="#e5f0f3"/><text x="48" y="528" text-anchor="middle" fill="#447584" font-size="19">□</text><text x="78" y="519" fill="#26372f" font-size="13" font-weight="700">数据与存储</text><text x="78" y="537" fill="#8a9790" font-size="10">备份、恢复、存储空间</text><text x="350" y="528" text-anchor="end" fill="#9ba8a2" font-size="22">›</text>
+    <rect x="16" y="573" width="358" height="132" rx="18" fill="#fff"/>
+    <rect x="30" y="588" width="36" height="36" rx="11" fill="#e7f1ec"/><text x="48" y="613" text-anchor="middle" fill="#2f6b57" font-size="20">⌁</text><text x="78" y="604" fill="#26372f" font-size="13" font-weight="700">连接诊断</text><text x="78" y="622" fill="#8a9790" font-size="10">服务器状态与网络检查</text><text x="350" y="613" text-anchor="end" fill="#9ba8a2" font-size="22">›</text>
+    <line x1="78" y1="638" x2="354" y2="638" stroke="#edf1ef"/>
+    <rect x="30" y="653" width="36" height="36" rx="11" fill="#f1eee7"/><text x="48" y="678" text-anchor="middle" fill="#806d49" font-size="18">i</text><text x="78" y="669" fill="#26372f" font-size="13" font-weight="700">关于邀群密聊</text><text x="78" y="687" fill="#8a9790" font-size="10">版本、许可与安全说明</text><text x="350" y="678" text-anchor="end" fill="#9ba8a2" font-size="22">›</text>
+  </g>
+  <text x="195" y="748" text-anchor="middle" fill="#94a099" font-family="Noto Sans CJK SC,sans-serif" font-size="10">邀群密聊 v0.2 · 端到端加密通信</text>
+</svg>
