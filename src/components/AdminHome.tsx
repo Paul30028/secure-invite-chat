@@ -29,7 +29,7 @@ export function AdminHome({
         <div
           className={`rounded-xl px-4 py-2.5 text-xs mb-6 ${
             status === "online"
-              ? "bg-[#e8f9ee] text-[#1a7f4b]"
+              ? "bg-[#eaf1ec] text-[#2f5c40]"
               : status === "local"
                 ? "bg-[#fff8e8] text-[#805d1b]"
                 : "bg-[#fff2f2] text-[#a33c3c]"
@@ -50,7 +50,7 @@ export function AdminHome({
             type="button"
             disabled={!ready}
             onClick={onCreate}
-            className="rounded-xl bg-[#07c160] hover:bg-[#06ad56] disabled:opacity-40 p-4 text-left text-white"
+            className="rounded-xl bg-[#3d6b4f] hover:bg-[#06ad56] disabled:opacity-40 p-4 text-left text-white"
           >
             <div className="font-semibold">创建群 · 发邀请码</div>
             <p className="text-[11px] text-white/85 mt-1">成为管理端</p>

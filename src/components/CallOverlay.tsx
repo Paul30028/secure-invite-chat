@@ -48,7 +48,7 @@ export function CallOverlay({
 
       {!isVideo && (
         <div className="flex flex-1 items-center justify-center">
-          <div className="grid h-28 w-28 place-items-center rounded-full bg-[#07c160] text-4xl">
+          <div className="grid h-28 w-28 place-items-center rounded-full bg-[#3d6b4f] text-4xl">
             {call.peer.displayName.slice(0, 1) || "友"}
           </div>
         </div>
@@ -65,7 +65,7 @@ export function CallOverlay({
               <span className="grid h-14 w-14 place-items-center rounded-full bg-[#fa5151] text-2xl">×</span>拒绝
             </button>
             <button type="button" onClick={onAccept} className="col-span-1 flex flex-col items-center gap-2 text-sm">
-              <span className="grid h-14 w-14 place-items-center rounded-full bg-[#07c160] text-2xl">✓</span>接听
+              <span className="grid h-14 w-14 place-items-center rounded-full bg-[#3d6b4f] text-2xl">✓</span>接听
             </button>
           </>
         ) : failed ? (

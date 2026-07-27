@@ -170,7 +170,7 @@ export function AdminPanel({
           <textarea className="w-full mb-2 rounded bg-[#0d1117] border border-[#30363d] p-2 text-xs" placeholder="每日灵修" value={dailyDevotion} onChange={e => setDailyDevotion(e.target.value)} />
           <input className="w-full mb-2 rounded bg-[#0d1117] border border-[#30363d] p-2 text-xs" placeholder="赞美诗歌 / 链接" value={hymn} onChange={e => setHymn(e.target.value)} />
           <textarea className="w-full mb-2 rounded bg-[#0d1117] border border-[#30363d] p-2 text-xs" placeholder="今日金句（必填）" value={scripture} onChange={e => setScripture(e.target.value)} />
-          <button type="button" className="w-full py-2 rounded bg-[#07c160] text-xs text-white disabled:opacity-40" disabled={!scripture.trim()} onClick={() => onPublishNotice({ dailyDevotion, hymn, scripture })}>发布并广播</button>
+          <button type="button" className="w-full py-2 rounded bg-[#3d6b4f] text-xs text-white disabled:opacity-40" disabled={!scripture.trim()} onClick={() => onPublishNotice({ dailyDevotion, hymn, scripture })}>发布并广播</button>
           <label className="mt-3 flex justify-between text-xs text-amber-200">维护模式<button type="button" className={`px-2 py-1 rounded ${maintenance ? "bg-red-600" : "bg-[#30363d]"}`} onClick={() => { const next = !maintenance; setMaintenance(next); onMaintenance(next); }}>{maintenance ? "已开启" : "已关闭"}</button></label>
         </section>
 

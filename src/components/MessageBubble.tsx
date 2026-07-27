@@ -17,7 +17,7 @@ function formatSize(n: number): string {
 function trustLabel(t?: TrustBadge): { text: string; cls: string } | null {
   switch (t) {
     case "verified":
-      return { text: "已签名", cls: "text-[#118c43]" };
+      return { text: "已签名", cls: "text-[#3d6b4f]" };
     case "first_seen":
       return { text: "新设备", cls: "text-[#3b82f6]" };
     case "key_changed":
@@ -136,7 +136,7 @@ function LinkCard({
     <div
       className={`rounded-2xl overflow-hidden border text-sm max-w-full ${
         isMine
-          ? "bg-[#95ec69] border-[#95ec69] text-[#1f2329] rounded-tr-sm"
+          ? "bg-[#4a7c59] border-[#4a7c59] text-white rounded-tr-sm"
           : "bg-white border-[#e5e5e5] text-[#1f2329] rounded-tl-sm"
       }`}
     >
@@ -216,7 +216,7 @@ function FileBubble({ msg, trust }: { msg: ChatMessage; trust: ReturnType<typeof
         <div
           className={`rounded-2xl overflow-hidden text-left text-sm ${
             msg.isMine
-              ? "bg-[#95ec69] text-[#1f2329] rounded-tr-sm"
+              ? "bg-[#4a7c59] text-white rounded-tr-sm"
               : "bg-white text-[#1f2329] rounded-tl-sm"
           } ${msg.trust === "key_changed" || msg.trust === "bad_sig" ? "ring-1 ring-red-500" : ""}`}
         >
@@ -268,12 +268,12 @@ export function MessageBubble({ msg }: { msg: ChatMessage }) {
     const percent = total ? Math.round((received / total) * 100) : 0;
     return (
       <div className={`flex ${msg.isMine ? "justify-end" : "justify-start"} mb-3`}>
-        <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${msg.isMine ? "bg-[#95ec69]" : "bg-white"}`}>
+        <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${msg.isMine ? "bg-[#4a7c59]" : "bg-white"}`}>
           <div className="font-medium">📎 {msg.file.name}</div>
           <div className={`mt-1 text-[11px] ${error ? "text-red-500" : "text-[#6b7280]"}`}>
             {error || `接收中 ${received}/${total}（${percent}%）`}
           </div>
-          {!error && <div className="mt-2 h-1.5 rounded-full bg-black/10 overflow-hidden"><div className="h-full bg-[#07c160]" style={{ width: `${percent}%` }} /></div>}
+          {!error && <div className="mt-2 h-1.5 rounded-full bg-black/10 overflow-hidden"><div className="h-full bg-[#3d6b4f]" style={{ width: `${percent}%` }} /></div>}
         </div>
       </div>
     );
@@ -310,7 +310,7 @@ export function MessageBubble({ msg }: { msg: ChatMessage }) {
           <div
             className={`rounded-lg px-3.5 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap ${
               msg.isMine
-                ? "bg-[#95ec69] text-[#1f2329] rounded-tr-sm"
+                ? "bg-[#4a7c59] text-white rounded-tr-sm"
                 : "bg-white text-[#1f2329] rounded-tl-sm"
             } ${msg.decryptError ? "border border-red-500/60 italic opacity-80" : ""} ${
               msg.trust === "key_changed" || msg.trust === "bad_sig" ? "ring-1 ring-red-500" : ""

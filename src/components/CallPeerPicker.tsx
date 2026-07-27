@@ -24,7 +24,7 @@ export function CallPeerPicker({
               <span className="grid h-10 w-10 place-items-center rounded-md bg-[#8aa1b5] text-base font-medium text-white">{peer.displayName.slice(0, 1)}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm text-[#191919]">{peer.displayName}</span>
-                <span className="mt-0.5 block text-[11px] text-[#07c160]">在线</span>
+                <span className="mt-0.5 block text-[11px] text-[#3d6b4f]">在线</span>
               </span>
               <span className="text-lg text-[#999]">›</span>
             </button>

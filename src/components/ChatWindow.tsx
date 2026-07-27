@@ -115,7 +115,7 @@ export function ChatWindow({
 
   return (
     <div
-      className="flex-1 flex flex-col h-full min-w-0 bg-[#ededed] relative text-[#1f2329]"
+      className="flex-1 flex flex-col h-full min-w-0 bg-[#f3efe6] relative text-[#1f2329]"
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -124,11 +124,11 @@ export function ChatWindow({
       onDrop={onDrop}
     >
       {dragOver && (
-        <div className="absolute inset-0 z-40 bg-[#07c160]/15 border-2 border-dashed border-[#07c160] flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 z-40 bg-[#3d6b4f]/15 border-2 border-dashed border-[#3d6b4f] flex items-center justify-center pointer-events-none">
           <div className="text-center text-[#1f2329]">
             <div className="text-3xl mb-2">📎</div>
             <div className="text-sm font-medium">松开以加密传送文件</div>
-            <div className="text-xs text-[#07c160] mt-1">
+            <div className="text-xs text-[#3d6b4f] mt-1">
               上限 {MAX_FILE_BYTES / 1024 / 1024}MB
             </div>
           </div>
@@ -151,7 +151,7 @@ export function ChatWindow({
             <div className="text-sm font-semibold truncate flex items-center gap-1.5">
               {group.name}
               {group.isAdmin && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#07c160]/15 text-[#118c43] font-normal">
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3d6b4f]/15 text-[#3d6b4f] font-normal">
                   管理端
                 </span>
               )}
@@ -166,7 +166,7 @@ export function ChatWindow({
           {localMode && onSimulatePeer && (
             <button
               type="button"
-              className="px-2 py-1.5 text-[11px] rounded-lg bg-[#e5f6ee] text-[#118c43]"
+              className="px-2 py-1.5 text-[11px] rounded-lg bg-[#e5f6ee] text-[#3d6b4f]"
               onClick={onSimulatePeer}
             >
               模拟
@@ -183,7 +183,7 @@ export function ChatWindow({
           )}
           <button
             type="button"
-            className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-[#e5f6ee] text-[#118c43] border border-[#c7ead8]"
+            className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-[#e5f6ee] text-[#3d6b4f] border border-[#c7ead8]"
             onClick={() => setShowSafety(true)}
           >
             安全码
@@ -191,7 +191,7 @@ export function ChatWindow({
           {group.isAdmin && (
             <button
               type="button"
-              className="px-2 sm:px-2.5 py-1.5 text-xs rounded-md bg-[#07c160] text-white font-medium"
+              className="px-2 sm:px-2.5 py-1.5 text-xs rounded-md bg-[#3d6b4f] text-white font-medium"
               onClick={onOpenAdmin}
             >
               邀请码
@@ -210,7 +210,7 @@ export function ChatWindow({
       {showSafety && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-[#d9d9d9] rounded-xl p-5 max-w-sm w-full">
-            <h3 className="text-sm font-semibold text-[#118c43] mb-2">群安全码</h3>
+            <h3 className="text-sm font-semibold text-[#3d6b4f] mb-2">群安全码</h3>
             <p className="font-mono text-[11px] text-[#1f2329] leading-relaxed break-all mb-3">
               {safety || "…"}
             </p>
@@ -237,7 +237,7 @@ export function ChatWindow({
             </p>
             <label className="text-xs text-[#6b7280] mb-1 block">网址</label>
             <input
-              className="w-full bg-[#f7f7f7] border border-[#d9d9d9] rounded-lg px-3 py-2.5 mb-3 text-sm outline-none focus:border-[#07c160] font-mono"
+              className="w-full bg-[#f7f7f7] border border-[#d9d9d9] rounded-lg px-3 py-2.5 mb-3 text-sm outline-none focus:border-[#3d6b4f] font-mono"
               placeholder="https://… 或 www.…"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
@@ -245,7 +245,7 @@ export function ChatWindow({
             />
             <label className="text-xs text-[#6b7280] mb-1 block">备注（可选）</label>
             <input
-              className="w-full bg-[#f7f7f7] border border-[#d9d9d9] rounded-lg px-3 py-2.5 mb-4 text-sm outline-none focus:border-[#07c160]"
+              className="w-full bg-[#f7f7f7] border border-[#d9d9d9] rounded-lg px-3 py-2.5 mb-4 text-sm outline-none focus:border-[#3d6b4f]"
               placeholder="例如：会议纪要 / 资料下载"
               value={linkNote}
               onChange={(e) => setLinkNote(e.target.value)}
@@ -260,7 +260,7 @@ export function ChatWindow({
               </button>
               <button
                 type="button"
-                className="px-3 py-2 text-sm rounded-md bg-[#07c160] text-white disabled:opacity-40"
+                className="px-3 py-2 text-sm rounded-md bg-[#3d6b4f] text-white disabled:opacity-40"
                 disabled={!linkUrl.trim()}
                 onClick={sendLink}
               >
@@ -283,7 +283,7 @@ export function ChatWindow({
               <button
                 type="button"
                 onClick={onSimulatePeer}
-                className="text-xs text-[#118c43] underline"
+                className="text-xs text-[#3d6b4f] underline"
               >
                 点这里模拟对方发来一条 →
               </button>
@@ -292,7 +292,7 @@ export function ChatWindow({
               <button
                 type="button"
                 onClick={onOpenAdmin}
-                className="text-xs text-[#118c43] underline"
+                className="text-xs text-[#3d6b4f] underline"
               >
                 打开管理端，邀请手机 / 其它电脑加入 →
               </button>
@@ -310,7 +310,7 @@ export function ChatWindow({
       {fileProgress && (
         <div className="px-3 sm:px-4 pb-1">
           <div className="rounded-xl border border-[#c7ead8] bg-[#e5f6ee] px-3 py-2.5">
-            <div className="flex items-center justify-between text-[11px] text-[#118c43] mb-1.5">
+            <div className="flex items-center justify-between text-[11px] text-[#3d6b4f] mb-1.5">
               <span className="truncate">加密传送 · {fileProgress.label}</span>
               <span className="shrink-0 tabular-nums ml-2">
                 {fileProgress.percent}%
@@ -318,7 +318,7 @@ export function ChatWindow({
             </div>
             <div className="h-1.5 rounded-full bg-[#0d1117] overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#07c160] transition-all duration-200 ease-out"
+                className="h-full rounded-full bg-[#3d6b4f] transition-all duration-200 ease-out"
                 style={{ width: `${fileProgress.percent}%` }}
               />
             </div>
@@ -394,7 +394,7 @@ export function ChatWindow({
             onChange={(e) => handleFile(e.target.files?.[0] || null)}
           />
           <textarea
-            className="flex-1 bg-[#f7f7f7] border border-[#d9d9d9] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#07c160] resize-none min-h-[40px] max-h-28"
+            className="flex-1 bg-[#f7f7f7] border border-[#d9d9d9] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#3d6b4f] resize-none min-h-[40px] max-h-28"
             placeholder="发消息"
             rows={1}
             value={text}
@@ -422,7 +422,7 @@ export function ChatWindow({
           />
           <button
             type="button"
-            className="px-3 sm:px-4 py-2.5 text-sm rounded-md bg-[#07c160] hover:bg-[#06ad56] text-white disabled:opacity-40 shrink-0 min-h-[40px]"
+            className="px-3 sm:px-4 py-2.5 text-sm rounded-md bg-[#3d6b4f] hover:bg-[#06ad56] text-white disabled:opacity-40 shrink-0 min-h-[40px]"
             disabled={!text.trim() || sendingFile}
             onClick={handleSend}
           >
