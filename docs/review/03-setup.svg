@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fbfcfb"/><stop offset=".54" stop-color="#edf3f0"/><stop offset="1" stop-color="#f8f4ea"/></linearGradient>
+    <linearGradient id="button" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2f6b57"/><stop offset="1" stop-color="#214f42"/></linearGradient>
+  </defs>
+  <rect width="390" height="844" fill="url(#bg)"/>
+  <rect x="20" y="24" width="48" height="48" rx="14" fill="#eef3ef"/>
+  <text x="20" y="103" fill="#bc8a43" font-family="Noto Sans CJK SC,sans-serif" font-size="10" font-weight="700" letter-spacing="2">首次使用</text>
+  <text x="20" y="141" fill="#20312c" font-family="Noto Sans CJK SC,sans-serif" font-size="27" font-weight="700">设置你的个人信息</text>
+  <text x="20" y="169" fill="#708079" font-family="Noto Sans CJK SC,sans-serif" font-size="12">选择头像和昵称，稍后仍可在设置中修改。</text>
+
+  <rect x="20" y="193" width="350" height="471" rx="22" fill="#ffffff" opacity=".9" stroke="#cbdad3"/>
+  <circle cx="195" cy="247" r="36" fill="#e8f1ec" stroke="#9dbbad" stroke-width="2"/>
+  <text x="195" y="258" text-anchor="middle" fill="#2f6b57" font-family="Noto Sans CJK SC,sans-serif" font-size="27" font-weight="700">麦</text>
+  <text x="40" y="310" fill="#42564d" font-family="Noto Sans CJK SC,sans-serif" font-size="12" font-weight="700">选择头像</text>
+  <text x="40" y="329" fill="#8a9790" font-family="Noto Sans CJK SC,sans-serif" font-size="10">可选内置头像，也可从相册选择照片</text>
+  <g font-size="20" text-anchor="middle">
+    <rect x="40" y="346" width="40" height="40" rx="12" fill="#e9f3ee" stroke="#2f6b57" stroke-width="2"/><text x="60" y="373" fill="#2f6b57">麦</text>
+    <rect x="87" y="346" width="40" height="40" rx="12" fill="#f7f9f8" stroke="#dbe4df"/><text x="107" y="373" fill="#718b7f">鸽</text>
+    <rect x="134" y="346" width="40" height="40" rx="12" fill="#f7f9f8" stroke="#dbe4df"/><text x="154" y="373" fill="#718b7f">鱼</text>
+    <rect x="181" y="346" width="40" height="40" rx="12" fill="#f7f9f8" stroke="#dbe4df"/><text x="201" y="373" fill="#718b7f">十</text>
+    <rect x="228" y="346" width="40" height="40" rx="12" fill="#f7f9f8" stroke="#dbe4df"/><text x="248" y="373" fill="#718b7f">经</text>
+    <rect x="275" y="346" width="40" height="40" rx="12" fill="#f7f9f8" stroke="#dbe4df"/><text x="295" y="373">♡</text>
+    <rect x="322" y="346" width="28" height="40" rx="10" fill="#f1f5f3" stroke="#9dbbad"/><text x="336" y="373" fill="#2f6b57">＋</text>
+  </g>
+  <text x="40" y="419" fill="#42564d" font-family="Noto Sans CJK SC,sans-serif" font-size="12" font-weight="700">群聊昵称</text>
+  <rect x="40" y="432" width="310" height="50" rx="13" fill="#f9fbfa" stroke="#9ebcac"/>
+  <text x="55" y="463" fill="#20312c" font-family="Noto Sans CJK SC,sans-serif" font-size="15">保罗</text>
+  <text x="42" y="505" fill="#8a9790" font-family="Noto Sans CJK SC,sans-serif" font-size="10">加入不同群聊时仍可单独修改昵称</text>
+  <line x1="40" y1="527" x2="350" y2="527" stroke="#edf1ef"/>
+  <text x="40" y="555" fill="#20312c" font-family="Noto Sans CJK SC,sans-serif" font-size="13" font-weight="600">消息通知</text>
+  <text x="40" y="573" fill="#849087" font-family="Noto Sans CJK SC,sans-serif" font-size="10">新消息和来电提醒</text>
+  <rect x="307" y="544" width="43" height="25" rx="13" fill="#2f6b57"/><circle cx="338" cy="556.5" r="9.5" fill="#fff"/>
+  <rect x="40" y="593" width="310" height="52" rx="13" fill="#eef5f1"/>
+  <circle cx="58" cy="611" r="10.5" fill="#2f6b57"/><text x="58" y="615" text-anchor="middle" fill="#fff" font-size="11">✓</text>
+  <text x="78" y="609" fill="#476156" font-family="Noto Sans CJK SC,sans-serif" font-size="11" font-weight="600">隐私保护</text>
+  <text x="78" y="627" fill="#476156" font-family="Noto Sans CJK SC,sans-serif" font-size="10">头像保存在本机；服务器无法读取聊天内容。</text>
+
+  <rect x="20" y="694" width="350" height="54" rx="15" fill="url(#button)"/>
+  <text x="180" y="727" text-anchor="middle" fill="#fff" font-family="Noto Sans CJK SC,sans-serif" font-size="15" font-weight="600" letter-spacing="1">完成设置</text>
+  <text x="260" y="729" fill="#fff" font-size="21">→</text>
+</svg>
