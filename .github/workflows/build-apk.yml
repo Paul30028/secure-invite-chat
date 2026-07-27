@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - "codex/final-android-ui"
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
