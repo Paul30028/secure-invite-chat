@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState, type DragEvent } from "react";
 import { MessageBubble } from "./MessageBubble";
-import type { ChatMessage, LocalGroup } from "../lib/types";
+import type { ChatMessage, GroupMember, LocalGroup } from "../lib/types";
 import { computeGroupSafetyNumber, formatSafetyNumber } from "../lib/safetyNumber";
 import { MAX_FILE_BYTES, type FileSendProgress } from "../hooks/useChatEngine";
 
@@ -25,6 +25,10 @@ export function ChatWindow({
   onBack,
   groupSecret,
   localMode,
+  onlineMembers = [],
+  onStartAudio,
+  onStartVideo,
+  callAvailable = false,
 }: {
   group: LocalGroup;
   messages: ChatMessage[];
@@ -38,6 +42,10 @@ export function ChatWindow({
   onBack?: () => void;
   groupSecret: string;
   localMode?: boolean;
+  onlineMembers?: GroupMember[];
+  onStartAudio?: () => void;
+  onStartVideo?: () => void;
+  callAvailable?: boolean;
 }) {
   const [text, setText] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
@@ -151,7 +159,7 @@ export function ChatWindow({
             <div className="text-sm font-semibold truncate flex items-center gap-1.5">
               {group.name}
               {group.isAdmin && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3d6b4f]/15 text-[#3d6b4f] font-normal">
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3d6b4f]/15 text-[#2f5c40] font-normal">
                   管理端
                 </span>
               )}
@@ -163,10 +171,30 @@ export function ChatWindow({
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 flex-wrap justify-end">
+          <button
+            type="button"
+            className="grid h-8 w-8 place-items-center rounded-full border border-[#c7ead8] bg-[#e5f6ee] text-sm text-[#2f5c40] disabled:opacity-40"
+            onClick={onStartAudio}
+            disabled={!callAvailable}
+            aria-label="发起语音通话"
+            title={callAvailable ? "语音通话" : "暂无其他在线成员"}
+          >
+            ☎
+          </button>
+          <button
+            type="button"
+            className="grid h-8 w-8 place-items-center rounded-full border border-[#c7ead8] bg-[#e5f6ee] text-sm text-[#2f5c40] disabled:opacity-40"
+            onClick={onStartVideo}
+            disabled={!callAvailable}
+            aria-label="发起视频通话"
+            title={callAvailable ? "视频通话" : "暂无其他在线成员"}
+          >
+            ▣
+          </button>
           {localMode && onSimulatePeer && (
             <button
               type="button"
-              className="px-2 py-1.5 text-[11px] rounded-lg bg-[#e5f6ee] text-[#3d6b4f]"
+              className="px-2 py-1.5 text-[11px] rounded-lg bg-[#e5f6ee] text-[#2f5c40]"
               onClick={onSimulatePeer}
             >
               模拟
@@ -183,7 +211,7 @@ export function ChatWindow({
           )}
           <button
             type="button"
-            className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-[#e5f6ee] text-[#3d6b4f] border border-[#c7ead8]"
+            className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-[#e5f6ee] text-[#2f5c40] border border-[#c7ead8]"
             onClick={() => setShowSafety(true)}
           >
             安全码
@@ -207,10 +235,25 @@ export function ChatWindow({
         </div>
       </div>
 
+      <button
+        type="button"
+        onClick={onOpenMembers}
+        className="flex min-h-12 shrink-0 items-center gap-2 overflow-x-auto border-b border-[#d9d9d9] bg-white px-3 py-2 text-left"
+      >
+        <span className="shrink-0 text-[11px] font-medium text-[#2f5c40]">在线 {onlineMembers.length}</span>
+        {onlineMembers.slice(0, 8).map((member) => (
+          <span key={member.deviceId} className="flex shrink-0 items-center gap-1 rounded-full bg-[#f1f7f4] px-2 py-1 text-[11px] text-[#4b6358]">
+            <i className="h-1.5 w-1.5 rounded-full bg-[#3d6b4f]" />
+            {member.displayName}
+          </span>
+        ))}
+        {onlineMembers.length === 0 && <span className="text-[11px] text-[#999]">暂无其他在线成员</span>}
+      </button>
+
       {showSafety && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-[#d9d9d9] rounded-xl p-5 max-w-sm w-full">
-            <h3 className="text-sm font-semibold text-[#3d6b4f] mb-2">群安全码</h3>
+            <h3 className="text-sm font-semibold text-[#2f5c40] mb-2">群安全码</h3>
             <p className="font-mono text-[11px] text-[#1f2329] leading-relaxed break-all mb-3">
               {safety || "…"}
             </p>
@@ -283,7 +326,7 @@ export function ChatWindow({
               <button
                 type="button"
                 onClick={onSimulatePeer}
-                className="text-xs text-[#3d6b4f] underline"
+                className="text-xs text-[#2f5c40] underline"
               >
                 点这里模拟对方发来一条 →
               </button>
@@ -292,7 +335,7 @@ export function ChatWindow({
               <button
                 type="button"
                 onClick={onOpenAdmin}
-                className="text-xs text-[#3d6b4f] underline"
+                className="text-xs text-[#2f5c40] underline"
               >
                 打开管理端，邀请手机 / 其它电脑加入 →
               </button>
@@ -310,7 +353,7 @@ export function ChatWindow({
       {fileProgress && (
         <div className="px-3 sm:px-4 pb-1">
           <div className="rounded-xl border border-[#c7ead8] bg-[#e5f6ee] px-3 py-2.5">
-            <div className="flex items-center justify-between text-[11px] text-[#3d6b4f] mb-1.5">
+            <div className="flex items-center justify-between text-[11px] text-[#2f5c40] mb-1.5">
               <span className="truncate">加密传送 · {fileProgress.label}</span>
               <span className="shrink-0 tabular-nums ml-2">
                 {fileProgress.percent}%
