@@ -10,7 +10,7 @@ export async function makeQrDataUrl(text: string, size = 256): Promise<string> {
       errorCorrectionLevel: "M",
       margin: 2,
       width: size,
-      color: { dark: "#0d1117", light: "#ffffff" },
+      color: { dark: "#3d6b4f", light: "#ffffff" },
     });
   } catch (e) {
     console.warn("[qr] qrcode package missing or failed", e);

@@ -316,7 +316,7 @@ export function ChatWindow({
                 {fileProgress.percent}%
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-[#0d1117] overflow-hidden">
+            <div className="h-1.5 rounded-full bg-[#eaf1ec] overflow-hidden">
               <div
                 className="h-full rounded-full bg-[#3d6b4f] transition-all duration-200 ease-out"
                 style={{ width: `${fileProgress.percent}%` }}

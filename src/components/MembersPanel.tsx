@@ -42,15 +42,15 @@ export function MembersPanel({
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5 w-full max-w-[400px] shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl p-5 w-full max-w-[400px] shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-2 mb-1">
           <div>
             <h2 className="text-lg font-semibold">群成员</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#6b7280] mt-0.5">
               「{group.name}」· {members.length} 人 · 在线 {onlineCount}
             </p>
           </div>
-          <button type="button" className="text-slate-400 hover:text-white px-2" onClick={onClose}>
+          <button type="button" className="text-[#8a8a8a] hover:text-[#1f2329] px-2" onClick={onClose}>
             ✕
           </button>
         </div>
@@ -58,18 +58,18 @@ export function MembersPanel({
         <div className="flex gap-2 mb-3">
           <button
             type="button"
-            className="text-[11px] px-2.5 py-1.5 rounded-lg bg-[#21262d] text-slate-300"
+            className="text-[11px] px-2.5 py-1.5 rounded-lg bg-[#f3efe6] text-[#1f2329]"
             onClick={onRefresh}
           >
             刷新
           </button>
           {group.isAdmin && (
-            <span className="text-[10px] text-slate-600 self-center">管理员可踢出成员</span>
+            <span className="text-[10px] text-[#8a8a8a] self-center">管理员可踢出成员</span>
           )}
         </div>
 
         {members.length === 0 ? (
-          <p className="text-xs text-slate-500 py-8 text-center">
+          <p className="text-xs text-[#6b7280] py-8 text-center">
             暂无成员数据，点刷新或等待同步
           </p>
         ) : (
@@ -80,19 +80,19 @@ export function MembersPanel({
               return (
                 <li
                   key={m.deviceId}
-                  className="flex items-center gap-3 rounded-xl border border-[#30363d] bg-[#0d1117] px-3 py-2.5"
+                  className="flex items-center gap-3 rounded-xl border border-black/10 bg-[#f9f7f2] px-3 py-2.5"
                 >
                   <div className="relative shrink-0">
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
-                        m.isAdmin ? "bg-indigo-600" : "bg-slate-600"
+                        m.isAdmin ? "bg-[#3d6b4f]" : "bg-[#8a9a82]"
                       }`}
                     >
                       {(m.displayName || "?").slice(0, 1)}
                     </div>
                     <span
-                      className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0d1117] ${
-                        m.online ? "bg-emerald-400" : "bg-slate-600"
+                      className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#f9f7f2] ${
+                        m.online ? "bg-[#3d6b4f]" : "bg-[#c9ccd2]"
                       }`}
                       title={m.online ? "在线" : "离线"}
                     />
@@ -101,26 +101,26 @@ export function MembersPanel({
                     <div className="text-sm font-medium truncate flex items-center gap-1.5">
                       {m.displayName || "未命名"}
                       {isMe && (
-                        <span className="text-[9px] text-slate-500 font-normal">我</span>
+                        <span className="text-[9px] text-[#6b7280] font-normal">我</span>
                       )}
                       {m.isAdmin && (
-                        <span className="text-[9px] px-1 py-0.5 rounded bg-indigo-900/60 text-indigo-300">
+                        <span className="text-[9px] px-1 py-0.5 rounded bg-[#eaf1ec] text-[#2f5c40]">
                           管理
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-slate-500 truncate">
+                    <div className="text-[10px] text-[#6b7280] truncate">
                       {m.online ? "在线" : "离线"}
                       {m.joinedAt ? ` · 加入 ${formatJoined(m.joinedAt)}` : ""}
                     </div>
-                    <div className="text-[9px] text-slate-700 font-mono truncate" title={m.deviceId}>
+                    <div className="text-[9px] text-[#a3a3a3] font-mono truncate" title={m.deviceId}>
                       {m.deviceId.slice(0, 8)}…
                     </div>
                   </div>
                   {canKick && (
                     <button
                       type="button"
-                      className="shrink-0 text-[11px] px-2.5 py-1.5 rounded-lg bg-red-950/50 text-red-400 border border-red-900/50 hover:bg-red-900/40"
+                      className="shrink-0 text-[11px] px-2.5 py-1.5 rounded-lg bg-[#fff2f2] text-[#c0392b] border border-[#f3d4d4] hover:bg-[#ffe6e6]"
                       onClick={() => {
                         if (
                           confirm(
@@ -134,9 +134,9 @@ export function MembersPanel({
                       踢出
                     </button>
                   )}
-                  {canKick && onMute && <button type="button" className="shrink-0 text-[11px] px-2 py-1.5 rounded-lg bg-amber-950/50 text-amber-300" onClick={() => onMute(m.deviceId)}>禁言</button>}
+                  {canKick && onMute && <button type="button" className="shrink-0 text-[11px] px-2 py-1.5 rounded-lg bg-[#fff8e8] text-[#805d1b]" onClick={() => onMute(m.deviceId)}>禁言</button>}
                   {group.isAdmin && !isMe && onShareHistory && (
-                    <button type="button" className="shrink-0 text-[11px] px-2 py-1 rounded-lg bg-slate-800 text-slate-300" onClick={() => onShareHistory(m.deviceId)}>
+                    <button type="button" className="shrink-0 text-[11px] px-2 py-1 rounded-lg bg-[#f3efe6] text-[#1f2329]" onClick={() => onShareHistory(m.deviceId)}>
                       分享历史
                     </button>
                   )}
@@ -146,13 +146,13 @@ export function MembersPanel({
           </ul>
         )}
 
-        <p className="text-[10px] text-slate-600 mt-4 leading-relaxed">
-          说明：踢出仅取消服务器成员资格；历史密文仍可能被已持有密钥的设备解密（当前无前向保密）。
+        <p className="text-[10px] text-[#8a8a8a] mt-4 leading-relaxed">
+          说明：踢出会自动为剩余成员轮换群密钥，被踢设备之后无法解密新消息；但对方在被踢前已经收到的历史消息，仍会留存在其本机。
         </p>
 
         <button
           type="button"
-          className="w-full mt-3 py-2.5 text-sm rounded-xl bg-[#21262d] text-slate-200"
+          className="w-full mt-3 py-2.5 text-sm rounded-xl bg-[#f3efe6] text-[#1f2329]"
           onClick={onClose}
         >
           关闭
