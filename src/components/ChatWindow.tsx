@@ -25,6 +25,7 @@ export function ChatWindow({
   onBack,
   groupSecret,
   localMode,
+  dailyNotice,
   onlineMembers = [],
   onStartAudio,
   onStartVideo,
@@ -42,6 +43,7 @@ export function ChatWindow({
   onBack?: () => void;
   groupSecret: string;
   localMode?: boolean;
+  dailyNotice?: string;
   onlineMembers?: GroupMember[];
   onStartAudio?: () => void;
   onStartVideo?: () => void;
@@ -49,6 +51,8 @@ export function ChatWindow({
 }) {
   const [text, setText] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showTools, setShowTools] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [showLinkBox, setShowLinkBox] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkNote, setLinkNote] = useState("");
@@ -143,104 +147,77 @@ export function ChatWindow({
         </div>
       )}
 
-      <div className="h-14 shrink-0 border-b border-[#d9d9d9] bg-[#f7f7f7] flex items-center justify-between px-3 sm:px-5 gap-2">
+      <div className="relative min-h-[68px] shrink-0 border-b border-[#dce8e2] bg-white/95 flex items-center justify-between px-3 sm:px-5 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {onBack && (
             <button
               type="button"
-              className="sm:hidden w-9 h-9 rounded-md bg-transparent text-[#1f2329] text-xl shrink-0"
+              className="w-9 h-9 rounded-full bg-transparent text-[#1f2329] text-xl shrink-0"
               onClick={onBack}
               aria-label="返回"
             >
-              ←
+              ‹
             </button>
           )}
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e5f1eb] text-sm font-bold text-[#176f53]">
+            {group.name.slice(0, 1)}
+          </span>
           <div className="min-w-0">
-            <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+            <div className="text-[15px] font-semibold truncate flex items-center gap-1.5">
               {group.name}
-              {group.isAdmin && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3d6b4f]/15 text-[#2f5c40] font-normal">
-                  管理端
-                </span>
-              )}
             </div>
-            <div className="text-[11px] text-[#8a8a8a] truncate">
+            <div className="text-[11px] text-[#8a9b93] truncate">
               {typeof memberCount === "number" ? `${memberCount} 人 · ` : ""}
-              {group.isAdmin ? "管理端" : group.displayName} · 加密
+              端到端加密
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 flex-wrap justify-end">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
-            className="grid h-8 w-8 place-items-center rounded-full border border-[#c7ead8] bg-[#e5f6ee] text-sm text-[#2f5c40] disabled:opacity-40"
+            className="grid h-9 w-9 place-items-center rounded-full bg-[#edf6f1] text-base text-[#176f53] disabled:opacity-35"
             onClick={onStartAudio}
             disabled={!callAvailable}
             aria-label="发起语音通话"
             title={callAvailable ? "语音通话" : "暂无其他在线成员"}
           >
-            ☎
+            ☎︎
           </button>
           <button
             type="button"
-            className="grid h-8 w-8 place-items-center rounded-full border border-[#c7ead8] bg-[#e5f6ee] text-sm text-[#2f5c40] disabled:opacity-40"
+            className="grid h-9 w-9 place-items-center rounded-full bg-[#edf6f1] text-base text-[#176f53] disabled:opacity-35"
             onClick={onStartVideo}
             disabled={!callAvailable}
             aria-label="发起视频通话"
             title={callAvailable ? "视频通话" : "暂无其他在线成员"}
           >
-            ▣
+            ▦
           </button>
-          {localMode && onSimulatePeer && (
-            <button
-              type="button"
-              className="px-2 py-1.5 text-[11px] rounded-lg bg-[#e5f6ee] text-[#2f5c40]"
-              onClick={onSimulatePeer}
-            >
-              模拟
-            </button>
-          )}
-          {onOpenMembers && (
-            <button
-              type="button"
-              className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-white hover:bg-[#f0f0f0] text-[#333] border border-[#d9d9d9]"
-              onClick={onOpenMembers}
-            >
-              成员{typeof memberCount === "number" ? `(${memberCount})` : ""}
-            </button>
-          )}
           <button
             type="button"
-            className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-[#e5f6ee] text-[#2f5c40] border border-[#c7ead8]"
-            onClick={() => setShowSafety(true)}
+            className="grid h-9 w-9 place-items-center rounded-full bg-transparent text-xl text-[#31564a]"
+            onClick={() => setShowMore((value) => !value)}
+            aria-label="更多"
           >
-            安全码
-          </button>
-          {group.isAdmin && (
-            <button
-              type="button"
-              className="px-2 sm:px-2.5 py-1.5 text-xs rounded-md bg-[#3d6b4f] text-white font-medium"
-              onClick={onOpenAdmin}
-            >
-              邀请码
-            </button>
-          )}
-          <button
-            type="button"
-            className="px-2 sm:px-2.5 py-1.5 text-xs rounded-lg bg-white text-[#e54d42] border border-[#ead0cd]"
-            onClick={onLeave}
-          >
-            退出
+            ⋯
           </button>
         </div>
+        {showMore && (
+          <div className="absolute right-3 top-14 z-30 min-w-40 overflow-hidden rounded-2xl border border-[#dce8e2] bg-white p-1.5 text-sm shadow-xl">
+            {onOpenMembers && <button className="w-full rounded-xl px-3 py-2.5 text-left hover:bg-[#f1f7f4]" onClick={() => { setShowMore(false); onOpenMembers(); }}>查看在线成员</button>}
+            <button className="w-full rounded-xl px-3 py-2.5 text-left hover:bg-[#f1f7f4]" onClick={() => { setShowMore(false); setShowSafety(true); }}>核对群安全码</button>
+            {group.isAdmin && <button className="w-full rounded-xl px-3 py-2.5 text-left hover:bg-[#f1f7f4]" onClick={() => { setShowMore(false); onOpenAdmin(); }}>管理员设置</button>}
+            <button className="w-full rounded-xl px-3 py-2.5 text-left text-[#c5483f] hover:bg-[#fff3f1]" onClick={onLeave}>退出群聊</button>
+          </div>
+        )}
       </div>
 
       <button
         type="button"
         onClick={onOpenMembers}
-        className="flex min-h-12 shrink-0 items-center gap-2 overflow-x-auto border-b border-[#d9d9d9] bg-white px-3 py-2 text-left"
+        className="flex min-h-12 shrink-0 items-center gap-2 overflow-x-auto border-b border-[#e5eee9] bg-white px-4 py-2 text-left"
       >
-        <span className="shrink-0 text-[11px] font-medium text-[#2f5c40]">在线 {onlineMembers.length}</span>
+        <span className="shrink-0 text-[11px] font-semibold text-[#176f53]">在线 {onlineMembers.length}</span>
         {onlineMembers.slice(0, 8).map((member) => (
           <span key={member.deviceId} className="flex shrink-0 items-center gap-1 rounded-full bg-[#f1f7f4] px-2 py-1 text-[11px] text-[#4b6358]">
             <i className="h-1.5 w-1.5 rounded-full bg-[#3d6b4f]" />
@@ -248,7 +225,15 @@ export function ChatWindow({
           </span>
         ))}
         {onlineMembers.length === 0 && <span className="text-[11px] text-[#999]">暂无其他在线成员</span>}
+        <span className="ml-auto shrink-0 text-[11px] text-[#87978f]">查看 ›</span>
       </button>
+
+      <div className="mx-4 mt-3 shrink-0 rounded-2xl border border-[#ecd4a9] bg-[#fffaf1] px-4 py-3 text-[#5f594f]">
+        <div className="mb-1 text-[10px] font-bold tracking-[.12em] text-[#bd8127]">今日金句</div>
+        <p className="m-0 line-clamp-2 text-xs leading-5">
+          {dailyNotice || "“看哪，弟兄和睦同居，是何等地善，何等地美！”"}
+        </p>
+      </div>
 
       {showSafety && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -370,7 +355,7 @@ export function ChatWindow({
       )}
 
       <div
-        className="border-t border-[#d9d9d9] bg-[#f7f7f7] p-2 sm:p-3 relative"
+        className="border-t border-[#dce8e2] bg-white p-2.5 sm:p-3 relative"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
         {showEmoji && (
@@ -387,41 +372,14 @@ export function ChatWindow({
             ))}
           </div>
         )}
-        <div className="flex items-end gap-1 sm:gap-1.5">
+        <div className="flex items-end gap-2">
           <button
             type="button"
-            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-md bg-white hover:bg-[#f0f0f0] border border-[#d9d9d9] flex items-center justify-center text-base"
-            onClick={() => setShowEmoji((s) => !s)}
-            title="表情"
+            className="w-10 h-10 shrink-0 rounded-xl bg-[#f4f7f5] hover:bg-[#edf3f0] border border-[#d8e3dd] flex items-center justify-center text-2xl text-[#31564a]"
+            onClick={() => setShowTools((value) => !value)}
+            title="更多发送方式"
           >
-            🙂
-          </button>
-          <button
-            type="button"
-            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-md bg-white hover:bg-[#f0f0f0] border border-[#d9d9d9] flex items-center justify-center text-sm disabled:opacity-40"
-            onClick={() => setShowLinkBox(true)}
-            disabled={sendingFile}
-            title="分享链接"
-          >
-            🔗
-          </button>
-          <button
-            type="button"
-            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-md bg-white hover:bg-[#f0f0f0] border border-[#d9d9d9] flex items-center justify-center text-sm disabled:opacity-40"
-            onClick={() => imageRef.current?.click()}
-            disabled={sendingFile}
-            title="发送图片"
-          >
-            🖼
-          </button>
-          <button
-            type="button"
-            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-md bg-white hover:bg-[#f0f0f0] border border-[#d9d9d9] flex items-center justify-center text-sm disabled:opacity-40"
-            onClick={() => fileRef.current?.click()}
-            disabled={sendingFile}
-            title={`加密传送文件（≤${MAX_FILE_BYTES / 1024 / 1024}MB）`}
-          >
-            {sendingFile ? "…" : "📎"}
+            ＋
           </button>
           <input
             ref={imageRef}
@@ -437,7 +395,7 @@ export function ChatWindow({
             onChange={(e) => handleFile(e.target.files?.[0] || null)}
           />
           <textarea
-            className="flex-1 bg-[#f7f7f7] border border-[#d9d9d9] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#3d6b4f] resize-none min-h-[40px] max-h-28"
+            className="flex-1 bg-[#f4f7f5] border border-[#d8e3dd] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#3d6b4f] resize-none min-h-[40px] max-h-28"
             placeholder="发消息"
             rows={1}
             value={text}
@@ -465,13 +423,24 @@ export function ChatWindow({
           />
           <button
             type="button"
-            className="px-3 sm:px-4 py-2.5 text-sm rounded-md bg-[#3d6b4f] hover:bg-[#06ad56] text-white disabled:opacity-40 shrink-0 min-h-[40px]"
+            className="px-4 py-2.5 text-sm rounded-xl bg-[#16845f] hover:bg-[#0f7654] text-white disabled:opacity-40 shrink-0 min-h-[40px]"
             disabled={!text.trim() || sendingFile}
             onClick={handleSend}
           >
             发送
           </button>
         </div>
+        {showTools && (
+          <div className="grid grid-cols-5 gap-2 pt-3">
+            <button type="button" className="flex flex-col items-center gap-1 text-[10px] text-[#60746b]" onClick={() => setShowEmoji((value) => !value)}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f1f6f3] text-base">☺</span>表情</button>
+            <button type="button" disabled={sendingFile} className="flex flex-col items-center gap-1 text-[10px] text-[#60746b]" onClick={() => imageRef.current?.click()}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f1f6f3] text-base">▧</span>图片</button>
+            <button type="button" disabled={sendingFile} className="flex flex-col items-center gap-1 text-[10px] text-[#60746b]" onClick={() => fileRef.current?.click()}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f1f6f3] text-base">⌁</span>文件</button>
+            <button type="button" disabled={sendingFile} className="flex flex-col items-center gap-1 text-[10px] text-[#60746b]" onClick={() => setShowLinkBox(true)}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f1f6f3] text-base">↗</span>链接</button>
+            {localMode && onSimulatePeer
+              ? <button type="button" className="flex flex-col items-center gap-1 text-[10px] text-[#60746b]" onClick={onSimulatePeer}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f1f6f3] text-base">↻</span>模拟</button>
+              : <button type="button" className="flex flex-col items-center gap-1 text-[10px] text-[#60746b]" onClick={onOpenMembers}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f1f6f3] text-base">♙</span>成员</button>}
+          </div>
+        )}
       </div>
     </div>
   );

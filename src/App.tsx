@@ -152,19 +152,22 @@ export default function App() {
                 onBack={back}
                 groupSecret={engine.getGroupSecret(active.groupId)}
                 localMode={engine.localMode}
+                dailyNotice={engine.dailyNotice.scripture || engine.dailyNotice.dailyDevotion}
               />
             : <AdminHome status={engine.status} hasGroups={engine.groups.length > 0} onCreate={() => setShowCreate(true)} onJoin={() => setShowJoin(true)} onSettings={() => setShowSettings(true)} />;
 
+  const chatFocused = section === "messages" && !!active && !onboarding;
+
   return <div className="flex h-full min-h-[100vh] w-full overflow-hidden flex-col">
-    <ConnectionBanner status={engine.status} onSettings={() => void engine.reconnect()} />
-    <DailyNoticeBar notice={engine.dailyNotice} />
+    {!chatFocused && <ConnectionBanner status={engine.status} onSettings={() => void engine.reconnect()} />}
+    {!chatFocused && <DailyNoticeBar notice={engine.dailyNotice} />}
     {engine.maintenance && <div className="bg-red-600 px-4 py-2 text-center text-xs text-white">系统维护中，非管理员暂时无法收发消息。</div>}
     <div className="flex min-h-0 flex-1">
-      <SectionNav active={section} onChange={setSection} desktop />
-      {section === "messages" && !onboarding && <Sidebar groups={engine.groups} activeGroupId={engine.activeGroupId} onSelect={engine.setActiveGroupId} onCreate={() => setShowCreate(true)} onJoin={() => setShowJoin(true)} onSettings={() => setShowSettings(true)} onOpenAdmin={() => setShowAdmin(true)} status={engine.status} mobileOpen={!engine.activeGroupId} preferences={local.data?.conversationPrefs} onConversationAction={(id, action) => void local.update((data) => ({ ...data, conversationPrefs: { ...data.conversationPrefs, [id]: { ...data.conversationPrefs[id], [action === "pin" ? "pinned" : action === "mute" ? "muted" : action === "unread" ? "unread" : "hidden"]: !data.conversationPrefs[id]?.[action === "pin" ? "pinned" : action === "mute" ? "muted" : action === "unread" ? "unread" : "hidden"] } } }))} />}
+      {!chatFocused && <SectionNav active={section} onChange={setSection} desktop />}
+      {section === "messages" && !onboarding && !chatFocused && <Sidebar groups={engine.groups} activeGroupId={engine.activeGroupId} onSelect={engine.setActiveGroupId} onCreate={() => setShowCreate(true)} onJoin={() => setShowJoin(true)} onSettings={() => setShowSettings(true)} onOpenAdmin={() => setShowAdmin(true)} status={engine.status} mobileOpen={!engine.activeGroupId} preferences={local.data?.conversationPrefs} onConversationAction={(id, action) => void local.update((data) => ({ ...data, conversationPrefs: { ...data.conversationPrefs, [id]: { ...data.conversationPrefs[id], [action === "pin" ? "pinned" : action === "mute" ? "muted" : action === "unread" ? "unread" : "hidden"]: !data.conversationPrefs[id]?.[action === "pin" ? "pinned" : action === "mute" ? "muted" : action === "unread" ? "unread" : "hidden"] } } }))} />}
       {content}
     </div>
-    {!onboarding && <SectionNav active={section} onChange={setSection} />}
+    {!onboarding && !chatFocused && <SectionNav active={section} onChange={setSection} />}
     {showCreate && <CreateGroupModal onClose={() => setShowCreate(false)} onCreate={engine.createGroup} />}
     {showJoin && <JoinGroupModal onClose={() => setShowJoin(false)} onJoin={engine.joinGroup} />}
     {showAdmin && active?.isAdmin && <AdminPanel group={active} shareInvite={engine.getShareInvite(active.groupId)} groupSecret={engine.getGroupSecret(active.groupId)} onClose={() => setShowAdmin(false)} onRegenerate={() => engine.regenerateCode(active.groupId)} onRotateKey={() => void engine.rotateGroupKeyNow(active.groupId)} onRevoke={() => engine.revokeInvite(active.groupId)} onSetExpiry={(hours) => engine.setInviteExpiry(active.groupId, hours)} onPublishNotice={(notice) => engine.publishDailyNotice(active.groupId, notice)} onMaintenance={(enabled) => engine.setMaintenanceMode(active.groupId, enabled)} />}
