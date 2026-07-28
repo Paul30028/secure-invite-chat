@@ -520,7 +520,7 @@ def set_app_state(key: str, value: dict):
 
 
 def get_daily_notice() -> dict:
-    return get_app_state("daily_notice", {"dailyDevotion": "", "hymn": "", "scripture": ""})
+    return get_app_state("daily_notice", {"dailyDevotion": "", "hymn": "", "scripture": "", "privacyReminder": ""})
 
 
 def save_daily_notice(notice: dict): set_app_state("daily_notice", notice)

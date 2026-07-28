@@ -34,7 +34,7 @@ export function AdminPanel({
   onRotateKey: () => void;
   onRevoke: () => void;
   onSetExpiry: (hours: number | null) => void;
-  onPublishNotice: (notice: { dailyDevotion: string; hymn: string; scripture: string }) => void;
+  onPublishNotice: (notice: { dailyDevotion: string; hymn: string; scripture: string; privacyReminder: string }) => void;
   onMaintenance: (enabled: boolean) => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -46,6 +46,7 @@ export function AdminPanel({
   const [dailyDevotion, setDailyDevotion] = useState("");
   const [hymn, setHymn] = useState("");
   const [scripture, setScripture] = useState("");
+  const [privacyReminder, setPrivacyReminder] = useState("邀请码请通过可信渠道发送，并与群友核对安全码。");
   const [maintenance, setMaintenance] = useState(false);
 
   const liveInvite = buildShareInvite(
@@ -167,10 +168,11 @@ export function AdminPanel({
 
         <section className="border border-[#30363d] rounded-lg p-3 mb-4">
           <h3 className="text-sm font-semibold text-white mb-2">每日公告发布</h3>
-          <textarea className="w-full mb-2 rounded bg-[#0d1117] border border-[#30363d] p-2 text-xs" placeholder="每日灵修" value={dailyDevotion} onChange={e => setDailyDevotion(e.target.value)} />
-          <input className="w-full mb-2 rounded bg-[#0d1117] border border-[#30363d] p-2 text-xs" placeholder="赞美诗歌 / 链接" value={hymn} onChange={e => setHymn(e.target.value)} />
-          <textarea className="w-full mb-2 rounded bg-[#0d1117] border border-[#30363d] p-2 text-xs" placeholder="今日金句（必填）" value={scripture} onChange={e => setScripture(e.target.value)} />
-          <button type="button" className="w-full py-2 rounded bg-[#3d6b4f] text-xs text-white disabled:opacity-40" disabled={!scripture.trim()} onClick={() => onPublishNotice({ dailyDevotion, hymn, scripture })}>发布并广播</button>
+          <textarea className="w-full mb-2 rounded bg-white border border-black/10 p-2 text-xs" placeholder="每日灵修" value={dailyDevotion} onChange={e => setDailyDevotion(e.target.value)} />
+          <input className="w-full mb-2 rounded bg-white border border-black/10 p-2 text-xs" placeholder="赞美诗歌 / 链接" value={hymn} onChange={e => setHymn(e.target.value)} />
+          <textarea className="w-full mb-2 rounded bg-white border border-black/10 p-2 text-xs" placeholder="今日金句（必填）" value={scripture} onChange={e => setScripture(e.target.value)} />
+          <textarea className="w-full mb-2 rounded bg-white border border-black/10 p-2 text-xs" placeholder="隐私提醒" value={privacyReminder} onChange={e => setPrivacyReminder(e.target.value)} />
+          <button type="button" className="w-full py-2 rounded bg-[#3d6b4f] text-xs text-white disabled:opacity-40" disabled={!scripture.trim()} onClick={() => onPublishNotice({ dailyDevotion, hymn, scripture, privacyReminder })}>发布并广播</button>
           <label className="mt-3 flex justify-between text-xs text-amber-200">维护模式<button type="button" className={`px-2 py-1 rounded ${maintenance ? "bg-red-600" : "bg-[#30363d]"}`} onClick={() => { const next = !maintenance; setMaintenance(next); onMaintenance(next); }}>{maintenance ? "已开启" : "已关闭"}</button></label>
         </section>
 

@@ -115,7 +115,7 @@ export function useChatEngine() {
   const [localMode, setLocalModeState] = useState(() => isLocalMode());
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [securityAlert, setSecurityAlert] = useState<string | null>(null);
-  const [dailyNotice, setDailyNotice] = useState({ dailyDevotion: "", hymn: "", scripture: "" });
+  const [dailyNotice, setDailyNotice] = useState({ dailyDevotion: "", hymn: "", scripture: "", privacyReminder: "" });
   const [maintenance, setMaintenance] = useState(false);
   /** groupId -> 成员列表 */
   const [membersByGroup, setMembersByGroup] = useState<Record<string, GroupMember[]>>({});
@@ -1277,7 +1277,7 @@ export function useChatEngine() {
   }, []);
 
   const clearSecurityAlert = useCallback(() => setSecurityAlert(null), []);
-  const publishDailyNotice = useCallback((groupId: string, notice: { dailyDevotion: string; hymn: string; scripture: string }) => { const g = getLocalGroups().find(x => x.groupId === groupId); if (g?.adminToken) wsClient.publishDailyNotice(groupId, g.adminToken, notice); }, []);
+  const publishDailyNotice = useCallback((groupId: string, notice: { dailyDevotion: string; hymn: string; scripture: string; privacyReminder: string }) => { const g = getLocalGroups().find(x => x.groupId === groupId); if (g?.adminToken) wsClient.publishDailyNotice(groupId, g.adminToken, notice); }, []);
   const setMaintenanceMode = useCallback((groupId: string, enabled: boolean) => { const g = getLocalGroups().find(x => x.groupId === groupId); if (g?.adminToken) wsClient.setMaintenance(groupId, g.adminToken, enabled); }, []);
 
   return {

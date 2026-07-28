@@ -307,7 +307,7 @@ async def handle_connection(ws):
 
             if mtype == "publish_daily_notice":
                 if not valid_admin(msg): await send_error(ws, "not_authorized"); continue
-                notice = {field: (msg.get(field) or "").strip() for field in ("dailyDevotion", "hymn", "scripture")}
+                notice = {field: (msg.get(field) or "").strip() for field in ("dailyDevotion", "hymn", "scripture", "privacyReminder")}
                 if not notice["scripture"]: await send_error(ws, "missing_fields"); continue
                 db.save_daily_notice(notice); await broadcast_app({"type": "daily_notice", **notice}); continue
 

@@ -85,7 +85,7 @@ type ServerEventMap = {
     hint?: string;
   };
   error: { message: string };
-  daily_notice: { dailyDevotion: string; hymn: string; scripture: string };
+  daily_notice: { dailyDevotion: string; hymn: string; scripture: string; privacyReminder: string };
   maintenance: { enabled: boolean };
   member_muted: { group_id: string; target_device_id: string; muted: boolean };
   connected: undefined;
@@ -437,7 +437,7 @@ export class SicWsClient {
     this.send({ type: "ack_key_delivery", group_id: groupId, device_id: deviceId, delivery_id: deliveryId });
   }
   getDailyNotice() { this.send({ type: "get_daily_notice" }); }
-  publishDailyNotice(groupId: string, adminToken: string, notice: { dailyDevotion: string; hymn: string; scripture: string }) { this.send({ type: "publish_daily_notice", group_id: groupId, admin_token: adminToken, ...notice }); }
+  publishDailyNotice(groupId: string, adminToken: string, notice: { dailyDevotion: string; hymn: string; scripture: string; privacyReminder: string }) { this.send({ type: "publish_daily_notice", group_id: groupId, admin_token: adminToken, ...notice }); }
   setMaintenance(groupId: string, adminToken: string, enabled: boolean) { this.send({ type: "set_maintenance", group_id: groupId, admin_token: adminToken, enabled }); }
   muteMember(groupId: string, adminToken: string, targetDeviceId: string, muted: boolean) { this.send({ type: "mute_member", group_id: groupId, admin_token: adminToken, target_device_id: targetDeviceId, muted }); }
 }
