@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <defs><linearGradient id="mine" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4d8a70"/><stop offset="1" stop-color="#2f6b57"/></linearGradient></defs>
+  <rect width="390" height="844" fill="#eef1ef"/>
+  <rect width="390" height="88" fill="#fff"/><line x1="0" y1="88" x2="390" y2="88" stroke="#dce4df"/>
+  <text x="18" y="65" fill="#4d5b55" font-size="27">‹</text>
+  <rect x="46" y="36" width="40" height="40" rx="12" fill="#dfece6"/><text x="66" y="62" text-anchor="middle" fill="#2f6b57" font-family="Noto Sans CJK SC,sans-serif" font-size="14" font-weight="700">同</text>
+  <text x="98" y="51" fill="#20312c" font-family="Noto Sans CJK SC,sans-serif" font-size="14" font-weight="700">同心同行</text>
+  <text x="98" y="70" fill="#7b8983" font-family="Noto Sans CJK SC,sans-serif" font-size="10">4 人 · 端到端加密</text>
+  <text x="276" y="64" text-anchor="middle" fill="#2f6b57" font-size="23">☎</text><text x="322" y="63" text-anchor="middle" fill="#2f6b57" font-size="22">▣</text><text x="365" y="61" text-anchor="middle" fill="#4d5b55" font-size="24">···</text>
+
+  <rect y="88" width="390" height="50" fill="#fbfcfb"/><line x1="0" y1="138" x2="390" y2="138" stroke="#dce4df"/>
+  <text x="16" y="118" fill="#2f6b57" font-family="Noto Sans CJK SC,sans-serif" font-size="11" font-weight="700">在线 3</text>
+  <g font-family="Noto Sans CJK SC,sans-serif" font-size="10">
+    <rect x="70" y="98" width="76" height="30" rx="15" fill="#eaf3ee"/><circle cx="87" cy="113" r="10" fill="#7d9e90"/><text x="87" y="117" text-anchor="middle" fill="#fff">恩</text><circle cx="94" cy="106" r="3.5" fill="#33a36b" stroke="#fff"/><text x="105" y="117" fill="#33473e">恩典</text>
+    <rect x="152" y="98" width="76" height="30" rx="15" fill="#eaf3ee"/><circle cx="169" cy="113" r="10" fill="#8aa6b7"/><text x="169" y="117" text-anchor="middle" fill="#fff">约</text><circle cx="176" cy="106" r="3.5" fill="#33a36b" stroke="#fff"/><text x="187" y="117" fill="#33473e">约翰</text>
+    <rect x="234" y="98" width="76" height="30" rx="15" fill="#eaf3ee"/><circle cx="251" cy="113" r="10" fill="#b68b82"/><text x="251" y="117" text-anchor="middle" fill="#fff">路</text><circle cx="258" cy="106" r="3.5" fill="#33a36b" stroke="#fff"/><text x="269" y="117" fill="#33473e">路得</text>
+    <text x="365" y="118" text-anchor="end" fill="#708079">查看 ›</text>
+  </g>
+
+  <rect x="20" y="154" width="350" height="48" rx="14" fill="#f7f3e9" stroke="#e5d7ba"/>
+  <text x="36" y="174" fill="#9b7436" font-family="Noto Sans CJK SC,sans-serif" font-size="10">今日金句</text>
+  <text x="36" y="192" fill="#5d563f" font-family="Noto Sans CJK SC,sans-serif" font-size="11">“看哪，弟兄和睦同居，是何等地善，何等地美！”</text>
+  <circle cx="42" cy="250" r="18" fill="#8da99d"/><text x="42" y="255" text-anchor="middle" fill="#fff" font-family="Noto Sans CJK SC,sans-serif" font-size="12">恩</text>
+  <text x="70" y="232" fill="#89958f" font-family="Noto Sans CJK SC,sans-serif" font-size="9">恩典  08:35</text>
+  <rect x="68" y="241" width="230" height="58" rx="6" fill="#fff"/><text x="83" y="266" fill="#26352f" font-family="Noto Sans CJK SC,sans-serif" font-size="13">早安，今晚 7:30 我们线上交流，</text><text x="83" y="286" fill="#26352f" font-family="Noto Sans CJK SC,sans-serif" font-size="13">请大家提前预备。</text>
+  <text x="310" y="331" text-anchor="end" fill="#89958f" font-family="Noto Sans CJK SC,sans-serif" font-size="9">我  08:37</text>
+  <rect x="108" y="341" width="220" height="44" rx="6" fill="url(#mine)"/><text x="123" y="368" fill="#fff" font-family="Noto Sans CJK SC,sans-serif" font-size="13">收到，我会准时参加。🙏</text>
+  <circle cx="350" cy="363" r="18" fill="#bc8a43"/><text x="350" y="368" text-anchor="middle" fill="#fff" font-family="Noto Sans CJK SC,sans-serif" font-size="12">保</text>
+  <circle cx="42" cy="434" r="18" fill="#8da99d"/><text x="42" y="439" text-anchor="middle" fill="#fff" font-family="Noto Sans CJK SC,sans-serif" font-size="12">恩</text>
+  <text x="70" y="416" fill="#89958f" font-family="Noto Sans CJK SC,sans-serif" font-size="9">恩典  08:40</text>
+  <rect x="68" y="425" width="225" height="76" rx="8" fill="#fff"/><rect x="83" y="441" width="38" height="44" rx="8" fill="#eef4f1"/><text x="102" y="469" text-anchor="middle" font-size="20">📎</text>
+  <text x="132" y="456" fill="#26352f" font-family="Noto Sans CJK SC,sans-serif" font-size="12" font-weight="600">今晚分享提纲.pdf</text><text x="132" y="476" fill="#7d8b85" font-family="Noto Sans CJK SC,sans-serif" font-size="10">1.8 MB · 加密文件</text>
+
+  <rect y="748" width="390" height="96" fill="#fff"/><line x1="0" y1="748" x2="390" y2="748" stroke="#dce4df"/>
+  <rect x="10" y="762" width="42" height="42" rx="12" fill="#f7f9f8" stroke="#dce4df"/><text x="31" y="790" text-anchor="middle" fill="#53635c" font-size="26">+</text>
+  <rect x="59" y="762" width="224" height="42" rx="12" fill="#f5f7f6" stroke="#dce4df"/><text x="74" y="788" fill="#9aa49f" font-family="Noto Sans CJK SC,sans-serif" font-size="13">发消息</text>
+  <text x="305" y="790" text-anchor="middle" font-size="20">🙂</text><rect x="330" y="762" width="50" height="42" rx="12" fill="#2f6b57"/><text x="355" y="789" text-anchor="middle" fill="#fff" font-family="Noto Sans CJK SC,sans-serif" font-size="13">发送</text>
+  <text x="195" y="830" text-anchor="middle" fill="#91a099" font-family="Noto Sans CJK SC,sans-serif" font-size="9">语音 · 视频 · 图片 · 文件 · 链接</text>
+</svg>

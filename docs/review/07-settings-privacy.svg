@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <rect width="390" height="844" fill="#eef2ef"/><rect width="390" height="88" fill="#fff"/><line x1="0" y1="88" x2="390" y2="88" stroke="#dbe4df"/>
+  <text x="20" y="61" fill="#46574f" font-size="28">‹</text><text x="195" y="60" text-anchor="middle" fill="#20312c" font-family="Noto Sans CJK SC,sans-serif" font-size="18" font-weight="700">隐私与安全</text><text x="360" y="60" text-anchor="end" fill="#2f6b57" font-family="Noto Sans CJK SC,sans-serif" font-size="13" font-weight="700">完成</text>
+  <rect x="16" y="108" width="358" height="224" rx="20" fill="#fff"/>
+  <g font-family="Noto Sans CJK SC,sans-serif">
+    <text x="32" y="140" fill="#26372f" font-size="13" font-weight="700">显示已读状态</text><text x="32" y="159" fill="#8a9790" font-size="10">让群成员知道你已查看消息</text><rect x="315" y="128" width="43" height="25" rx="13" fill="#2f6b57"/><circle cx="346" cy="140.5" r="9.5" fill="#fff"/>
+    <line x1="32" y1="179" x2="358" y2="179" stroke="#edf1ef"/>
+    <text x="32" y="207" fill="#26372f" font-size="13" font-weight="700">截屏与录屏保护</text><text x="32" y="226" fill="#8a9790" font-size="10">Android 端已强制开启</text><rect x="305" y="195" width="53" height="25" rx="13" fill="#e7f1ec"/><text x="331.5" y="212" text-anchor="middle" fill="#2f6b57" font-size="10" font-weight="700">已开启</text>
+    <line x1="32" y1="246" x2="358" y2="246" stroke="#edf1ef"/>
+    <text x="32" y="274" fill="#26372f" font-size="13" font-weight="700">设备密钥</text><text x="32" y="293" fill="#8a9790" font-size="10">仅保存在当前设备</text><rect x="315" y="262" width="43" height="25" rx="13" fill="#e7f1ec"/><text x="336.5" y="279" text-anchor="middle" fill="#2f6b57" font-size="10" font-weight="700">安全</text>
+  </g>
+  <rect x="16" y="350" width="358" height="83" rx="18" fill="#f8f1e5" stroke="#ead9b9"/><circle cx="40" cy="374" r="11" fill="#bc8a43"/><text x="40" y="379" text-anchor="middle" fill="#fff" font-size="13">!</text><text x="60" y="377" fill="#6f5b36" font-family="Noto Sans CJK SC,sans-serif" font-size="11" font-weight="700">核对安全码</text><text x="32" y="405" fill="#7d6b4b" font-family="Noto Sans CJK SC,sans-serif" font-size="10">重要操作前，请通过可信语音或线下方式核对安全码。</text>
+  <text x="24" y="482" fill="#849087" font-family="Noto Sans CJK SC,sans-serif" font-size="10">聊天与媒体选项采用相同布局：</text>
+  <rect x="16" y="498" width="358" height="150" rx="20" fill="#fff"/>
+  <text x="32" y="532" fill="#26372f" font-family="Noto Sans CJK SC,sans-serif" font-size="13" font-weight="700">仅 Wi‑Fi 自动下载</text><text x="32" y="551" fill="#8a9790" font-family="Noto Sans CJK SC,sans-serif" font-size="10">图片和小文件</text><rect x="315" y="520" width="43" height="25" rx="13" fill="#dfe6e2"/><circle cx="327" cy="532.5" r="9.5" fill="#fff"/>
+  <line x1="32" y1="571" x2="358" y2="571" stroke="#edf1ef"/>
+  <text x="32" y="600" fill="#26372f" font-family="Noto Sans CJK SC,sans-serif" font-size="13" font-weight="700">单个文件上限</text><text x="32" y="619" fill="#8a9790" font-family="Noto Sans CJK SC,sans-serif" font-size="10">分块端到端加密传输</text><text x="350" y="604" text-anchor="end" fill="#2f6b57" font-family="Noto Sans CJK SC,sans-serif" font-size="11" font-weight="700">50 MB</text>
+</svg>
