@@ -6,7 +6,6 @@
 import {
   DEFAULT_WS_URL,
   DEFAULT_INVITE_WS_URL,
-  FALLBACK_WS_URL,
   FEATURES,
 } from "../config/appConfig";
 
@@ -138,7 +137,6 @@ export function setWsUrl(_url: string) {}
 export function getDefaultWsUrl(): string {
   return builtInDefault();
 }
-export function getFallbackWsUrl(): string { return FALLBACK_WS_URL; }
 
 /**
  * 写入邀请码的服务器（可选）
