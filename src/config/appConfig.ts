@@ -37,7 +37,7 @@ export const PROTOCOL = {
  */
 /** Managed service endpoint; users never enter hosts or ports. */
 export const DEFAULT_WS_URL = "wss://ws.secureinchat.com";
-export const FALLBACK_WS_URL = "ws://212.135.212.22:8765";
+export const FALLBACK_WS_URL = DEFAULT_WS_URL;
 
 /**
  * 默认「写入邀请码」的服务器（直连阶段通常与 DEFAULT 相同）
