@@ -2,7 +2,7 @@
 server.py - 邀群密聊 WebSocket 后端（中国区直连）
 
 安全模型：
-- 只转发/存储密文；无密钥
+- 在 TTL 与配额内转发/存储密文；无明文、无群密钥
 - invite_code / admin_token 为入群与管理凭证，非加密密钥
 - list_members 只返回昵称/设备 ID/是否在线，无密钥材料
 
@@ -21,6 +21,7 @@ import asyncio
 import json
 import logging
 import secrets as secrets_mod
+import time
 
 import websockets
 from websockets.asyncio.server import serve
@@ -167,6 +168,7 @@ def history_payload(
 ) -> dict:
     import config as cfg
 
+    db.delete_expired_messages(int(time.time() * 1000) - cfg.MESSAGE_RETENTION_SECONDS * 1000)
     messages, has_more, cursor = db.get_history_page(
         group_id,
         limit=cfg.HISTORY_PAGE_SIZE,
@@ -342,6 +344,22 @@ async def handle_connection(ws):
                 await ws.send(json.dumps(members_payload(result["group_id"])))
                 log.info(f"群组已创建: {result['group_id']} name={name}")
 
+            elif mtype == "preview_invite":
+                if not action_rate_allowed(ws):
+                    await send_error(ws, "rate_limited")
+                    continue
+                invite_code = msg.get("invite_code")
+                group = db.find_active_group_by_invite_code(invite_code) if isinstance(invite_code, str) else None
+                if not group:
+                    await send_error(ws, "invite_expired_or_revoked")
+                    continue
+                await ws.send(json.dumps({
+                    "type": "invite_preview",
+                    "invite_code": invite_code,
+                    "name": group["name"],
+                    "expires_at": group.get("invite_expires_at"),
+                }))
+
             elif mtype == "join_group":
                 if not action_rate_allowed(ws):
                     await send_error(ws, "rate_limited")
@@ -354,7 +372,7 @@ async def handle_connection(ws):
                 if not invite_code or not device_id:
                     await send_error(ws, "invite_code_and_device_id_required")
                     continue
-                group = db.find_group_by_invite_code(invite_code)
+                group = db.find_active_group_by_invite_code(invite_code)
                 if not group:
                     await send_error(ws, "invalid_invite_code")
                     continue
@@ -491,9 +509,6 @@ async def handle_connection(ws):
                 if not group_id or not device_id or not db.is_member(group_id, device_id):
                     await send_error(ws, "not_a_member")
                     continue
-                if not db.invite_is_active(group):
-                    await send_error(ws, "invite_expired_or_revoked")
-                    continue
                 if db.is_admin_member(group_id, device_id):
                     await send_error(ws, "admin_cannot_leave")
                     continue
@@ -596,6 +611,7 @@ async def handle_connection(ws):
                 iv = msg.get("iv")
                 msg_type = msg.get("msg_type", "text")
                 key_version = msg.get("key_version", 1)
+                client_message_id = msg.get("client_message_id")
                 sender_name = msg.get("sender_name") or "未知"
 
                 if db.is_maintenance() and not db.is_admin_member(group_id, device_id):
@@ -617,8 +633,21 @@ async def handle_connection(ws):
                     await send_error(ws, "rate_limited")
                     continue
 
+                db.delete_expired_messages(
+                    int(time.time() * 1000) - cfg.MESSAGE_RETENTION_SECONDS * 1000
+                )
+                projected = len(ciphertext) + len(iv)
+                if (
+                    db.message_storage_chars(group_id) + projected
+                    > cfg.MAX_GROUP_MESSAGE_STORAGE_B64
+                    or db.message_storage_chars(group_id, device_id) + projected
+                    > cfg.MAX_DEVICE_MESSAGE_STORAGE_B64
+                ):
+                    await send_error(ws, "message_storage_quota_exceeded")
+                    continue
+
                 saved = db.save_message(
-                    group_id, device_id, sender_name, msg_type, ciphertext, iv, key_version
+                    group_id, device_id, sender_name, msg_type, ciphertext, iv, key_version, client_message_id
                 )
                 await broadcast(group_id, {"type": "message", **saved})
 

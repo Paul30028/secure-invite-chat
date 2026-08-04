@@ -1,3 +1,26 @@
-export function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
- return <div className="fixed inset-0 z-50 bg-black/60 grid place-items-center p-4"><div className="w-full max-w-md bg-white rounded-2xl p-5 text-[#1f2329]"><h2 className="text-lg font-semibold">隐私与通知</h2><section className="mt-4 text-sm leading-relaxed"><h3 className="font-medium">连接</h3><p className="text-[#6b7280] mt-1">应用会自动连接安全服务器；连接失败时可使用顶部“重新连接”。普通用户无需填写地址或端口。</p></section><section className="mt-4 text-sm leading-relaxed"><h3 className="font-medium">隐私</h3><p className="text-[#6b7280] mt-1">联系人备注、分组、黑名单与会话偏好只保存在本机加密存储中。</p></section><section className="mt-4 text-sm leading-relaxed"><h3 className="font-medium">通知</h3><p className="text-[#6b7280] mt-1">可在“我的”中管理备份与安全码提醒。</p></section><div className="flex justify-end mt-6"><button className="bg-[#3d6b4f] text-white px-4 py-2 rounded-lg" onClick={() => { onSaved(); onClose(); }}>完成</button></div></div></div>;
+export function SettingsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+      <section className="w-full max-w-md rounded-2xl border border-[#dfe5d9] bg-[#fffef9] p-5 text-[#29362b] shadow-xl" aria-label="隐私与通知说明">
+        <h2 className="text-lg font-semibold">隐私与通知</h2>
+        <div className="mt-4 space-y-4 text-sm leading-relaxed">
+          <div>
+            <h3 className="font-medium">连接</h3>
+            <p className="mt-1 text-[#71806f]">应用会自动连接团队安全服务器；连接失败时可在状态页重新连接。普通用户无需填写地址或端口。</p>
+          </div>
+          <div className="border-t border-[#e6eadf] pt-4">
+            <h3 className="font-medium">隐私</h3>
+            <p className="mt-1 text-[#71806f]">联系人备注、分组、黑名单与会话偏好只保存在本机加密存储中。</p>
+          </div>
+          <div className="border-t border-[#e6eadf] pt-4">
+            <h3 className="font-medium">通知</h3>
+            <p className="mt-1 text-[#71806f]">通知偏好和安全码提醒在“我的”中管理。</p>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end">
+          <button type="button" className="rounded-xl bg-[#3d6b4f] px-4 py-2 text-white" onClick={onClose}>知道了</button>
+        </div>
+      </section>
+    </div>
+  );
 }

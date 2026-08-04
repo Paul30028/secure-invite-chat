@@ -4,4 +4,16 @@ const data: PrivateData = { contacts: { d: { deviceId: "d", displayName: "Alice"
 describe("local private backup", () => {
   it("round-trips a password-encrypted local payload", async () => expect(await decryptBackupPayload(await encryptBackupPayload(data, "password"), "password")).toEqual(data));
   it("rejects a wrong password", async () => await expect(decryptBackupPayload(await encryptBackupPayload(data, "password"), "wrong")).rejects.toThrow());
+  it("handles large encrypted local payloads without overflowing the call stack", async () => {
+    const large = {
+      ...data,
+      contacts: {
+        d: {
+          ...data.contacts.d,
+          remark: "x".repeat(180_000),
+        },
+      },
+    };
+    await expect(decryptBackupPayload(await encryptBackupPayload(large, "password"), "password")).resolves.toEqual(large);
+  });
 });

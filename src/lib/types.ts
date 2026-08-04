@@ -53,4 +53,6 @@ export type ChatMessage = {
   blocked?: boolean;
   file?: FileMeta & { dataB64?: string };
   trust?: TrustBadge;
+  /** 客户端仅在收到服务器回传后标记“已发”；不伪造已读状态。 */
+  delivery?: "queued" | "sending" | "sent" | "failed";
 };

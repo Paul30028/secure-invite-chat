@@ -1,14 +1,27 @@
 import { useState } from "react";
 import { AVATAR_CHOICES, saveLocalProfile } from "../lib/localProfile";
+import { updatePrivateData } from "../lib/privateStore";
 
 export function ProfileSetupScreen({ onDone }: { onDone: () => void }) {
   const [avatar, setAvatar] = useState(AVATAR_CHOICES[0]);
   const [nickname, setNickname] = useState("");
   const [notify, setNotify] = useState(true);
 
-  const finish = () => {
-    saveLocalProfile({ avatar, nickname: nickname.trim() || avatar });
-    onDone();
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const finish = async () => {
+    if (saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updatePrivateData((data) => ({ ...data, settings: { ...data.settings, notifications: notify } }));
+      saveLocalProfile({ avatar, nickname: nickname.trim() || avatar });
+      onDone();
+    } catch {
+      setSaveError("资料未能保存到本机，请稍后重试。");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -72,15 +85,17 @@ export function ProfileSetupScreen({ onDone }: { onDone: () => void }) {
             隐私保护：头像仅保存在本机，服务器无法读取聊天内容。
           </p>
         </div>
+        {saveError && <p role="alert" className="mt-3 text-xs text-red-600">{saveError}</p>}
       </div>
 
       <div className="pb-8 pt-6 mt-auto">
         <button
           type="button"
-          onClick={finish}
-          className="w-full bg-[#3d6b4f] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2"
+          onClick={() => void finish()}
+          disabled={saving}
+          className="w-full bg-[#3d6b4f] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          完成设置 <span>→</span>
+          {saving ? "正在保存…" : <>完成设置 <span>→</span></>}
         </button>
       </div>
     </main>

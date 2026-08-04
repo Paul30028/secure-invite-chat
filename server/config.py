@@ -8,6 +8,9 @@
   SIC_MESSAGE_RATE_PER_MINUTE  每连接每分钟允许的密文消息数，默认 60
   SIC_MESSAGE_RATE_BURST  每连接短时突发消息数，默认 12
   SIC_HISTORY_PAGE_SIZE  每次历史同步的最大消息数，默认 100
+  SIC_MESSAGE_RETENTION_SECONDS  密文消息保留时间，默认 30 天
+  SIC_MAX_GROUP_MESSAGE_STORAGE_B64  单群密文消息配额，默认 250 MiB 字符量
+  SIC_MAX_DEVICE_MESSAGE_STORAGE_B64  单设备密文消息配额，默认 80 MiB 字符量
 
 未来中继：本进程仍可只监听 127.0.0.1，由前面的 TLS 反代转发；
 业务协议不变，见客户端 src/lib/protocol.ts。
@@ -46,6 +49,17 @@ FILE_SYNC_RATE_BURST = _positive_int_env("SIC_FILE_SYNC_RATE_BURST", 3)
 MESSAGE_RATE_PER_MINUTE = _positive_int_env("SIC_MESSAGE_RATE_PER_MINUTE", 60)
 MESSAGE_RATE_BURST = _positive_int_env("SIC_MESSAGE_RATE_BURST", 12)
 HISTORY_PAGE_SIZE = _positive_int_env("SIC_HISTORY_PAGE_SIZE", 100)
+# Limited ciphertext retention: the relay keeps opaque ciphertext only long
+# enough for offline sync and retry. Quotas are measured as stored base64 text.
+MESSAGE_RETENTION_SECONDS = _positive_int_env(
+    "SIC_MESSAGE_RETENTION_SECONDS", 30 * 24 * 60 * 60
+)
+MAX_GROUP_MESSAGE_STORAGE_B64 = _positive_int_env(
+    "SIC_MAX_GROUP_MESSAGE_STORAGE_B64", 250 * 1024 * 1024
+)
+MAX_DEVICE_MESSAGE_STORAGE_B64 = _positive_int_env(
+    "SIC_MAX_DEVICE_MESSAGE_STORAGE_B64", 80 * 1024 * 1024
+)
 ADVERTISE_LAN_HINTS = os.environ.get("SIC_ADVERTISE_LAN_HINTS", "0") == "1"
 # 生产环境设为 1：拒绝无设备公钥或无挑战签名的旧客户端。
 REQUIRE_DEVICE_AUTH = os.environ.get("SIC_REQUIRE_DEVICE_AUTH", "0") == "1"

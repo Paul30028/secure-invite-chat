@@ -1,75 +1,38 @@
-﻿import type { ConnStatus } from "../hooks/useChatEngine";
+import type { ConnStatus } from "../hooks/useChatEngine";
 import { APP_NAME } from "../config/appConfig";
-import { classifyWsUrl, getWsUrl } from "../lib/settings";
 
 export function AdminHome({
   status,
   hasGroups,
   onCreate,
   onJoin,
-  onSettings,
 }: {
   status: ConnStatus;
   hasGroups: boolean;
   onCreate: () => void;
   onJoin: () => void;
-  onSettings: () => void;
 }) {
   const ready = status === "online" || status === "local";
-  const info = classifyWsUrl(getWsUrl());
-
   return (
-    <div className="hidden sm:flex flex-1 flex-col items-center justify-center px-8 py-10 text-center overflow-y-auto">
-      <div className="w-full max-w-md">
-        <h2 className="text-xl font-bold text-[#1f2329] mb-2">{APP_NAME}</h2>
-        <p className="text-sm text-[#6b7280] mb-6 leading-relaxed">
-          直连模式 · 创建群发邀请码，成员填码入群
-        </p>
-
-        <div
-          className={`rounded-xl px-4 py-2.5 text-xs mb-6 ${
-            status === "online"
-              ? "bg-[#eaf1ec] text-[#2f5c40]"
-              : status === "local"
-                ? "bg-[#fff8e8] text-[#805d1b]"
-                : "bg-[#fff2f2] text-[#a33c3c]"
-          }`}
-        >
-          {status === "online"
-            ? `已连接 · ${info.hint}`
-            : status === "local"
-              ? "单机调试"
-              : "未连接"}
-          <button type="button" className="underline ml-2" onClick={onSettings}>
-            设置
+    <main className="hidden flex-1 flex-col items-center justify-center overflow-y-auto bg-[#f3efe6] px-8 py-10 text-center sm:flex">
+      <div className="w-full max-w-md rounded-3xl border border-[#dfe5d9] bg-[#fffef9] p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-[#29362b]">{APP_NAME}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-[#71806f]">创建群后分享邀请码，成员验证后加入。</p>
+        <div className={`mt-6 rounded-xl px-4 py-3 text-sm ${ready ? "bg-[#eaf1ec] text-[#2f5c40]" : "bg-[#fff2f2] text-[#a33c3c]"}`}>
+          {status === "online" ? "已连接 · 可以创建或加入群聊" : status === "local" ? "单机调试" : "暂时无法连接服务器"}
+        </div>
+        <div className="mt-6 grid gap-3">
+          <button type="button" disabled={!ready} onClick={onCreate} className="rounded-xl bg-[#3d6b4f] p-4 text-left text-white disabled:opacity-40">
+            <span className="block font-semibold">创建群聊 · 发邀请码</span>
+            <span className="mt-1 block text-[11px] text-white/85">成为群管理员</span>
+          </button>
+          <button type="button" disabled={!ready} onClick={onJoin} className="rounded-xl border border-[#dfe5d9] bg-white p-4 text-left text-[#29362b] disabled:opacity-40">
+            <span className="block font-semibold">输入邀请码 · 加入</span>
+            <span className="mt-1 block text-[11px] text-[#71806f]">进入对应的加密群</span>
           </button>
         </div>
-
-        <div className="grid gap-3">
-          <button
-            type="button"
-            disabled={!ready}
-            onClick={onCreate}
-            className="rounded-xl bg-[#3d6b4f] hover:bg-[#06ad56] disabled:opacity-40 p-4 text-left text-white"
-          >
-            <div className="font-semibold">创建群 · 发邀请码</div>
-            <p className="text-[11px] text-white/85 mt-1">成为管理端</p>
-          </button>
-          <button
-            type="button"
-            disabled={!ready}
-            onClick={onJoin}
-            className="rounded-xl bg-white hover:bg-[#f5f5f5] disabled:opacity-40 p-4 text-left border border-[#d9d9d9]"
-          >
-            <div className="font-semibold text-[#1f2329]">输入邀请码 · 加入</div>
-            <p className="text-[11px] text-[#6b7280] mt-1">进入对应加密群</p>
-          </button>
-        </div>
-
-        {hasGroups && (
-          <p className="text-xs text-[#8a8a8a] mt-6">左侧选择已有群继续聊天</p>
-        )}
+        {hasGroups && <p className="mt-6 text-xs text-[#8a9a82]">从左侧选择已有群继续聊天。</p>}
       </div>
-    </div>
+    </main>
   );
 }

@@ -2,7 +2,8 @@
 db.py - SQLite 持久化层
 
 重要安全说明：
-- 本文件存储的所有 message 内容（ciphertext / iv）均为客户端加密后的密文，
+- 本文件在明确 TTL 与配额内存储 message/file/key-delivery 密文，
+  用于离线恢复、历史同步、文件续传和密钥投递。
   服务器端【不持有】、【不参与】任何密钥的生成、协商或存储。
 - messages 表不存储明文，也不存储任何解密所需的密钥材料。
 - invite_code / admin_token 属于"入群凭证"和"管理员凭证"，不是加密密钥，
@@ -59,6 +60,7 @@ def init_db():
             ciphertext TEXT NOT NULL,
             iv TEXT NOT NULL,
             key_version INTEGER NOT NULL DEFAULT 1,
+            client_message_id TEXT,
             ts INTEGER NOT NULL
         );
 
@@ -109,6 +111,17 @@ def init_db():
         conn.execute("ALTER TABLE messages ADD COLUMN key_version INTEGER NOT NULL DEFAULT 1")
     except sqlite3.OperationalError:
         pass
+    try:
+        conn.execute("ALTER TABLE messages ADD COLUMN client_message_id TEXT")
+    except sqlite3.OperationalError:
+        pass
+    # A retry of the same encrypted envelope must not turn into a duplicate
+    # message after a connection drops between persistence and client echo.
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_client_dedup "
+        "ON messages(group_id, sender_device_id, client_message_id) "
+        "WHERE client_message_id IS NOT NULL"
+    )
     for statement in ("ALTER TABLE groups ADD COLUMN invite_expires_at INTEGER", "ALTER TABLE groups ADD COLUMN invite_revoked INTEGER NOT NULL DEFAULT 0"):
         try:
             conn.execute(statement)
@@ -183,6 +196,12 @@ def find_group_by_invite_code(invite_code: str):
     ).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+def find_active_group_by_invite_code(invite_code: str):
+    """Return a group only when its single current invite is usable."""
+    group = find_group_by_invite_code(invite_code)
+    return group if group and invite_is_active(group) else None
 
 
 def find_group_by_id(group_id: str):
@@ -353,15 +372,48 @@ def invite_is_active(group: dict) -> bool:
     return not bool(group.get("invite_revoked")) and (not group.get("invite_expires_at") or int(group["invite_expires_at"]) > int(time.time()))
 
 
-def save_message(group_id, sender_device_id, sender_name, msg_type, ciphertext, iv, key_version=1) -> dict:
+def save_message(
+    group_id,
+    sender_device_id,
+    sender_name,
+    msg_type,
+    ciphertext,
+    iv,
+    key_version=1,
+    client_message_id: str | None = None,
+) -> dict:
     conn = get_conn()
     msg_id = str(uuid.uuid4())
     ts = int(time.time() * 1000)
-    conn.execute(
-        """INSERT INTO messages (id, group_id, sender_device_id, sender_name, msg_type, ciphertext, iv, key_version, ts)
-           VALUES (?,?,?,?,?,?,?,?,?)""",
-        (msg_id, group_id, sender_device_id, sender_name, msg_type, ciphertext, iv, key_version, ts),
-    )
+    if client_message_id:
+        existing = conn.execute(
+            """SELECT * FROM messages WHERE group_id=? AND sender_device_id=?
+               AND client_message_id=?""",
+            (group_id, sender_device_id, client_message_id),
+        ).fetchone()
+        if existing:
+            conn.close()
+            return dict(existing)
+    try:
+        conn.execute(
+            """INSERT INTO messages
+               (id, group_id, sender_device_id, sender_name, msg_type, ciphertext, iv, key_version, client_message_id, ts)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (msg_id, group_id, sender_device_id, sender_name, msg_type, ciphertext, iv, key_version, client_message_id, ts),
+        )
+    except sqlite3.IntegrityError:
+        # Two retries can race; return the original opaque message rather than
+        # creating a second record.
+        existing = conn.execute(
+            """SELECT * FROM messages WHERE group_id=? AND sender_device_id=?
+               AND client_message_id=?""",
+            (group_id, sender_device_id, client_message_id),
+        ).fetchone()
+        if not existing:
+            conn.close()
+            raise
+        conn.close()
+        return dict(existing)
     conn.commit()
     conn.close()
     return {
@@ -373,8 +425,37 @@ def save_message(group_id, sender_device_id, sender_name, msg_type, ciphertext, 
         "ciphertext": ciphertext,
         "iv": iv,
         "key_version": key_version,
+        "client_message_id": client_message_id,
         "ts": ts,
     }
+
+
+def message_storage_chars(group_id: str, device_id: str | None = None) -> int:
+    """Stored ciphertext+IV size for quota checks; plaintext is never present."""
+    conn = get_conn()
+    if device_id is None:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(length(ciphertext)+length(iv)),0) AS used FROM messages WHERE group_id=?",
+            (group_id,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """SELECT COALESCE(SUM(length(ciphertext)+length(iv)),0) AS used
+               FROM messages WHERE group_id=? AND sender_device_id=?""",
+            (group_id, device_id),
+        ).fetchone()
+    conn.close()
+    return int(row["used"])
+
+
+def delete_expired_messages(cutoff_ms: int) -> int:
+    """Delete expired opaque message envelopes by server receive timestamp."""
+    conn = get_conn()
+    cur = conn.execute("DELETE FROM messages WHERE ts < ?", (cutoff_ms,))
+    conn.commit()
+    deleted = cur.rowcount
+    conn.close()
+    return deleted
 
 
 def get_history_page(

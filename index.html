@@ -39,7 +39,9 @@
         var el = document.getElementById("boot-error");
         if (el) {
           el.style.display = "block";
-          el.textContent = "启动错误: " + (e.message || String(e.error || e));
+          var err = e.error;
+          var detail = err && err.stack ? err.stack : (e.message || String(err || e));
+          el.textContent = "启动错误: " + detail;
         }
       });
     </script>

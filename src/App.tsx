@@ -20,18 +20,23 @@ import { ContactsPage } from "./components/ContactsPage";
 import { InvitesPage } from "./components/InvitesPage";
 import { MePage } from "./components/MePage";
 import { DailyNoticeBar } from "./components/DailyNoticeBar";
+import { AboutScreen } from "./components/AboutScreen";
+import { AdminSettingsScreen } from "./components/AdminSettingsScreen";
+import { ConnectionStatusScreen } from "./components/ConnectionStatusScreen";
+import { ConnectionDiagnosticsScreen } from "./components/ConnectionDiagnosticsScreen";
 import { SplashScreen } from "./components/SplashScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ProfileSetupScreen } from "./components/ProfileSetupScreen";
-import { AboutScreen } from "./components/AboutScreen";
-import { AdminSettingsScreen } from "./components/AdminSettingsScreen";
+import { AnnouncementsPage } from "./components/AnnouncementsPage";
+import { HomePage } from "./components/HomePage";
 
 type FlowStage = "splash" | "welcome" | "profile" | "main";
 
 export default function App() {
   const engine = useChatEngine();
   const local = usePrivateData();
-  const [section, setSection] = useState<AppSection>("messages");
+  const [section, setSection] = useState<AppSection>("home");
+  const [showDailyNotice, setShowDailyNotice] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -39,28 +44,46 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showAdminSettings, setShowAdminSettings] = useState(false);
-
+  const [adminFocus, setAdminFocus] = useState<"invite" | "notice" | "keys" | "maintenance" | undefined>();
+  const [showConnectionStatus, setShowConnectionStatus] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [stage, setStage] = useState<FlowStage>("splash");
+  const finishSplash = useCallback(() => {
+    setStage(getLocalProfile() ? "main" : "welcome");
+  }, []);
 
   const active = engine.groups.find((g) => g.groupId === engine.activeGroupId) || null;
   const members = active ? engine.membersByGroup[active.groupId] || [] : [];
+  const adminSettingsGroup = active?.isAdmin ? active : engine.groups.find((g) => g.isAdmin) || null;
   const onboarding = engine.groups.length === 0 && !active;
 
   useEffect(() => {
-    Object.entries(engine.membersByGroup).forEach(([id, list]) =>
-      void rememberMembers(id, engine.deviceId, list).then(local.refresh)
-    );
+    let cancelled = false;
+    const entries = Object.entries(engine.membersByGroup).filter(([, list]) => list.length > 0);
+    if (!entries.length) return;
+    void Promise.all(entries.map(([id, list]) => rememberMembers(id, engine.deviceId, list))).then(() => {
+      if (!cancelled) local.refresh();
+    });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine.membersByGroup, engine.deviceId, local.refresh]);
+  }, [engine.membersByGroup, engine.deviceId]);
 
   const back = useCallback(() => {
-    engine.setActiveGroupId(null);
-    setSection("messages");
+    if (engine.activeGroupId) {
+      engine.setActiveGroupId(null);
+      setSection("messages");
+      return;
+    }
+    setSection("home");
   }, [engine]);
 
   useAndroidBackButton({
     closers: [
       [showAdminSettings, () => setShowAdminSettings(false)],
+      [showConnectionStatus, () => setShowConnectionStatus(false)],
+      [showDiagnostics, () => setShowDiagnostics(false)],
       [showAbout, () => setShowAbout(false)],
       [showSettings, () => setShowSettings(false)],
       [showMembers, () => setShowMembers(false)],
@@ -68,25 +91,26 @@ export default function App() {
       [showJoin, () => setShowJoin(false)],
       [showCreate, () => setShowCreate(false)],
     ],
-    hasActiveGroup: !!engine.activeGroupId || section !== "messages",
+    hasActiveGroup: !!engine.activeGroupId || section !== "home",
     onBackToList: back,
   });
 
-  const enterMainApp = useCallback(() => {
-    setStage(getLocalProfile() ? "main" : "profile");
-  }, []);
+  useEffect(() => {
+    if (stage === "main" && !getLocalProfile() && engine.groups.length > 0) setStage("profile");
+  }, [engine.groups.length, stage]);
+  if (stage === "splash") return <SplashScreen onDone={finishSplash} scripture={engine.dailyNotice.scripture} />;
+  if (stage === "welcome") return <WelcomeScreen status={engine.status} notice={engine.dailyNotice} onEnter={() => setStage("main")} />;
+  if (stage === "profile") return <ProfileSetupScreen onDone={() => setStage("main")} />;
 
-  if (stage === "splash") {
-    return <SplashScreen onDone={() => setStage("welcome")} scripture={engine.dailyNotice.scripture} />;
-  }
-  if (stage === "welcome") {
-    return <WelcomeScreen status={engine.status} notice={engine.dailyNotice} onEnter={enterMainApp} />;
-  }
-  if (stage === "profile") {
-    return <ProfileSetupScreen onDone={() => setStage("main")} />;
-  }
-
-  const content = onboarding ? (
+  const content = section === "home" ? (
+    <HomePage
+      notice={engine.dailyNotice}
+      groupCount={engine.groups.length}
+      onOpenDevotion={() => setSection("announcements")}
+      onOpenHymn={() => setSection("announcements")}
+      onOpenCommunity={() => setSection("messages")}
+    />
+  ) : section === "announcements" ? <AnnouncementsPage notice={engine.dailyNotice} /> : onboarding && section === "messages" ? (
     <Onboarding
       status={engine.status}
       phoneHints={engine.phoneHints}
@@ -124,10 +148,14 @@ export default function App() {
     <MePage
       deviceId={engine.deviceId}
       data={local.data}
-      onSettings={() => setShowSettings(true)}
       onRestore={(data) => void local.update(() => data)}
       onOpenAbout={() => setShowAbout(true)}
+      onOpenAdminSettings={() => setShowAdminSettings(true)}
+      hasAdminGroups={engine.groups.some((g) => g.isAdmin)}
+      onBack={() => setSection("home")}
     />
+  ) : section === "me" ? (
+    <main className="flex-1 bg-[#fbfaf4] px-6 py-10 text-[#29362b]"><div className="mx-auto max-w-md rounded-2xl border border-[#dfe5d9] bg-[#fffef9] p-5 text-center shadow-sm"><h1 className="text-lg font-semibold">我的</h1><p className="mt-3 text-sm leading-relaxed text-[#71806f]">{local.error || "正在读取本机加密数据…"}</p><button type="button" className="mt-5 rounded-xl bg-[#557c5b] px-5 py-2.5 text-sm text-white" onClick={local.error ? local.refresh : () => setSection("home")}>{local.error ? "重新尝试" : "返回首页"}</button></div></main>
   ) : active ? (
     <ChatWindow
       group={active}
@@ -152,14 +180,13 @@ export default function App() {
       hasGroups={engine.groups.length > 0}
       onCreate={() => setShowCreate(true)}
       onJoin={() => setShowJoin(true)}
-      onSettings={() => setShowSettings(true)}
     />
   );
 
   return (
     <div className="flex h-full min-h-[100vh] w-full overflow-hidden flex-col">
-      <ConnectionBanner status={engine.status} onSettings={() => void engine.reconnect()} />
-      <DailyNoticeBar notice={engine.dailyNotice} />
+      <ConnectionBanner status={engine.status} onSettings={() => setShowConnectionStatus(true)} />
+      <DailyNoticeBar notice={engine.dailyNotice} open={showDailyNotice} onOpenChange={setShowDailyNotice} />
       {engine.maintenance && (
         <div className="bg-red-600 text-white text-xs px-4 py-2 text-center">
           系统维护中，非管理员暂时无法收发消息。
@@ -179,6 +206,7 @@ export default function App() {
             status={engine.status}
             mobileOpen={!engine.activeGroupId}
             preferences={local.data?.conversationPrefs}
+            dailyNotice={engine.dailyNotice}
             onConversationAction={(id, action) =>
               void local.update((d) => ({
                 ...d,
@@ -198,10 +226,10 @@ export default function App() {
         )}
         {content}
       </div>
-      {!onboarding && <SectionNav active={section} onChange={setSection} />}
+      <SectionNav active={section} onChange={setSection} />
 
       {showCreate && <CreateGroupModal onClose={() => setShowCreate(false)} onCreate={engine.createGroup} />}
-      {showJoin && <JoinGroupModal onClose={() => setShowJoin(false)} onJoin={engine.joinGroup} />}
+      {showJoin && <JoinGroupModal onClose={() => setShowJoin(false)} onJoin={engine.joinGroup} onPreview={engine.previewInvite} initialDisplayName={getLocalProfile()?.nickname || ""} />}
       {showAdmin && active?.isAdmin && (
         <AdminPanel
           group={active}
@@ -214,6 +242,7 @@ export default function App() {
           onSetExpiry={(hours) => engine.setInviteExpiry(active.groupId, hours)}
           onPublishNotice={(notice) => engine.publishDailyNotice(active.groupId, notice)}
           onMaintenance={(enabled) => engine.setMaintenanceMode(active.groupId, enabled)}
+          focusSection={adminFocus}
         />
       )}
       {showMembers && active && (
@@ -228,7 +257,9 @@ export default function App() {
           onShareHistory={(id) => void engine.shareHistoryWithMember(active.groupId, id)}
         />
       )}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} onSaved={() => void engine.reconnect()} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showConnectionStatus && <ConnectionStatusScreen status={engine.status} onBack={() => setShowConnectionStatus(false)} onReconnect={() => void engine.reconnect()} onOpenDiagnostics={() => { setShowConnectionStatus(false); setShowDiagnostics(true); }} />}
+      {showDiagnostics && <ConnectionDiagnosticsScreen status={engine.status} onBack={() => setShowDiagnostics(false)} onReconnect={() => void engine.reconnect()} />}
 
       {showAbout && !showAdminSettings && (
         <div className="fixed inset-0 z-[65] bg-[#f3efe6]">
@@ -242,42 +273,47 @@ export default function App() {
       {showAdminSettings && (
         <div className="fixed inset-0 z-[66] bg-[#f3efe6]">
           <AdminSettingsScreen
-            group={active && active.isAdmin ? active : engine.groups.find((g) => g.isAdmin)!}
-            onBack={() => setShowAdminSettings(false)}
+            group={adminSettingsGroup!}
+            onBack={() => { setAdminFocus(undefined); setShowAdminSettings(false); }}
             onOpenNotice={() => {
+              if (!adminSettingsGroup) return;
+              engine.setActiveGroupId(adminSettingsGroup.groupId);
+              setAdminFocus("notice");
               setShowAdminSettings(false);
               setShowAbout(false);
               setShowAdmin(true);
             }}
             onOpenMembers={() => {
+              if (!adminSettingsGroup) return;
+              engine.setActiveGroupId(adminSettingsGroup.groupId);
+              engine.refreshMembers(adminSettingsGroup.groupId);
               setShowAdminSettings(false);
               setShowAbout(false);
               setShowMembers(true);
             }}
             onOpenInvite={() => {
+              if (!adminSettingsGroup) return;
+              engine.setActiveGroupId(adminSettingsGroup.groupId);
+              setAdminFocus("invite");
               setShowAdminSettings(false);
               setShowAbout(false);
               setShowAdmin(true);
             }}
             onOpenKeys={() => {
+              if (!adminSettingsGroup) return;
+              engine.setActiveGroupId(adminSettingsGroup.groupId);
+              setAdminFocus("keys");
               setShowAdminSettings(false);
               setShowAbout(false);
               setShowAdmin(true);
             }}
             onOpenMaintenance={() => {
+              if (!adminSettingsGroup) return;
+              engine.setActiveGroupId(adminSettingsGroup.groupId);
+              setAdminFocus("maintenance");
               setShowAdminSettings(false);
               setShowAbout(false);
               setShowAdmin(true);
-            }}
-            onOpenDiagnostics={() => {
-              setShowAdminSettings(false);
-              setShowAbout(false);
-              setShowSettings(true);
-            }}
-            onOpenAuditLog={() => {
-              setShowAdminSettings(false);
-              setShowAbout(false);
-              setShowSettings(true);
             }}
           />
         </div>

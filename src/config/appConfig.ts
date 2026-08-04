@@ -20,6 +20,9 @@ export type ConnectionArchitecture = "direct" | "relay_ready";
 
 export const APP_NAME = "邀群密聊";
 export const APP_ID = "sic";
+export const APP_VERSION_NAME = "0.2.0";
+export const APP_VERSION_CODE = 2;
+export const APP_UPDATE_MANIFEST_URL = "https://chat.secureinchat.com/app-update.json";
 
 /** 协议版本：消息信封 / 邀请串 */
 export const PROTOCOL = {

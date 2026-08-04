@@ -1,0 +1,4 @@
+export function AnnouncementsPage({ notice }: { notice: { dailyDevotion: string; hymn: string; scripture: string; privacyReminder: string } }) {
+  const rows = [["每日公告", notice.dailyDevotion], ["今日经文", notice.scripture], ["赞美诗歌", notice.hymn], ["隐私提醒", notice.privacyReminder]].filter(([, value]) => Boolean(value));
+  return <main className="flex-1 overflow-y-auto bg-[#fbfaf4] px-4 py-6 text-[#29362b]"><div className="mx-auto max-w-md"><h1 className="mb-5 text-[27px] font-semibold">公告</h1>{rows.length ? <div className="space-y-3">{rows.map(([title, value]) => <section key={title} className="rounded-2xl border border-[#dfe5d9] bg-white p-4 shadow-sm"><h2 className="text-sm font-medium text-[#557c5b]">{title}</h2><p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{value}</p></section>)}</div> : <section className="rounded-2xl border border-[#dfe5d9] bg-white p-6 text-center text-sm text-[#71806f]">暂无公告。连接服务器后会自动同步。</section>}</div></main>;
+}

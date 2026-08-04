@@ -1,0 +1,13 @@
+{
+  "versionCode": 3,
+  "versionName": "0.3.0",
+  "apkUrl": "https://chat.secureinchat.com/downloads/secureinchat-0.3.0.apk",
+  "sha256": "replace_with_64_lowercase_hex_sha256_of_the_signed_apk",
+  "releaseNotes": [
+    "修复连接稳定性",
+    "优化首页与设置页面体验"
+  ],
+  "required": false,
+  "minSupportedVersionCode": 2,
+  "publishedAt": "2026-08-03T00:00:00Z"
+}

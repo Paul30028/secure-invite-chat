@@ -1,0 +1,4 @@
+export function HomeNav({ active, onHome, onDevotion, onHymn, onMe }: { active: "home" | "me"; onHome: () => void; onDevotion: () => void; onHymn: () => void; onMe: () => void }) {
+  const item = (label: string, icon: string, onClick: () => void, selected = false) => <button type="button" onClick={onClick} className={`flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${selected ? "text-[#29362b]" : "text-[#929a90]"}`}><span className="text-xl leading-none">{icon}</span><span>{label}</span></button>;
+  return <nav aria-label="首页导航" className="h-[66px] shrink-0 border-t border-[#e4eadf] bg-[#fffef9] pb-[env(safe-area-inset-bottom)] flex">{item("首页", "⌂", onHome, active === "home")}{item("圣经", "▣", onDevotion)}{item("活动", "▱", onHymn)}{item("我的", "♙", onMe, active === "me")}</nav>;
+}

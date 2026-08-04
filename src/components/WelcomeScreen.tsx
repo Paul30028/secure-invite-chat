@@ -23,7 +23,7 @@ export function WelcomeScreen({
   return (
     <main className="flex-1 overflow-y-auto bg-[#f3efe6] flex flex-col">
       <header className="flex items-center gap-3 px-5 pt-6">
-        <img src="/icon-192.png" alt={APP_NAME} className="w-11 h-11 rounded-xl" />
+        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-[#dfe5d9] bg-[#f6f4ea]"><img src="/assets/wheat-fish.jpg" alt={APP_NAME} className="absolute max-w-none" style={{ width: 138, left: -19, top: -15 }} /></div>
         <div>
           <h1 className="text-base font-semibold text-[#1f2329]">{APP_NAME}</h1>
           <p className="text-xs text-[#6b8a6f] flex items-center gap-1">
@@ -65,7 +65,7 @@ export function WelcomeScreen({
           进入{APP_NAME} <span>→</span>
         </button>
         <p className="text-center text-[11px] text-[#8a9a82] mt-3">
-          服务器只转发密文，不保存群密钥
+          服务器有限保留密文，不保存明文或群密钥
         </p>
       </div>
     </main>

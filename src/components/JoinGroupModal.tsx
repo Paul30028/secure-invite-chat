@@ -1,126 +1,84 @@
 import { useState } from "react";
 import { extractInviteFromText, parseInviteInput } from "../lib/invite";
 
-export function JoinGroupModal({
-  onClose,
-  onJoin,
-}: {
+type InvitePreview = { name: string; expiresAt: number | null };
+
+/** A server-confirmed invite flow: no group metadata is invented on-device. */
+export function JoinGroupModal({ onClose, onJoin, onPreview, initialDisplayName = "" }: {
   onClose: () => void;
   onJoin: (inviteCode: string, displayName: string) => void | Promise<void | boolean>;
+  onPreview: (inviteCode: string) => Promise<InvitePreview | null>;
+  initialDisplayName?: string;
 }) {
   const [inviteCode, setInviteCode] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [displayName, setDisplayName] = useState(initialDisplayName);
+  const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [hint, setHint] = useState("");
   const [busy, setBusy] = useState(false);
 
   const applyInviteText = (raw: string) => {
-    const extracted = extractInviteFromText(raw);
-    setInviteCode(extracted);
-    const p = parseInviteInput(extracted);
-    if (p?.relayUrl) {
-      setHint(`将自动连接：${p.relayUrl}（支持手机流量）`);
-    } else if (p && extracted.startsWith("SIC1.")) {
-      setHint("邀请码有效 · 未含服务器，需本机已配置中继地址");
-    } else if (extracted.startsWith("SIC1.")) {
-      setHint("邀请码格式正确");
-    } else {
-      setHint("");
-    }
+    const code = extractInviteFromText(raw);
+    setInviteCode(code);
+    setPreview(null);
+    const parsed = parseInviteInput(code);
+    setHint(parsed ? "已填写邀请码，请先验证。" : code ? "邀请码格式似乎不正确，请检查后重试。" : "");
   };
 
-  const pasteFromClipboard = async () => {
+  const paste = async () => {
+    try { applyInviteText(await navigator.clipboard.readText()); }
+    catch { setHint("请长按输入框后选择粘贴。"); }
+  };
+
+  const verify = async () => {
+    const raw = extractInviteFromText(inviteCode);
+    if (!parseInviteInput(raw)) return setHint("邀请码格式似乎不正确，请检查后重试。");
+    setBusy(true);
     try {
-      const t = await navigator.clipboard.readText();
-      if (t) applyInviteText(t);
-      else setHint("剪贴板为空");
-    } catch {
-      setHint("请长按输入框粘贴");
-    }
+      const result = await onPreview(raw);
+      setPreview(result);
+      setHint(result ? "邀请有效，请确认加入。" : "无法验证：邀请码无效、已撤销、已过期或暂时无法连接服务器。" );
+    } finally { setBusy(false); }
   };
 
   const submit = async () => {
-    if (!displayName.trim()) {
-      setHint("请填写昵称（群内不能重名）");
-      return;
-    }
+    if (!preview) return;
+    if (!displayName.trim()) return setHint("请填写你在群里显示的名字。");
     setBusy(true);
     try {
-      const ok = await onJoin(extractInviteFromText(inviteCode), displayName.trim());
-      // 失败时（昵称占用等）保持弹窗，错误由顶部/底部提示
-      if (ok !== false) onClose();
-    } finally {
-      setBusy(false);
-    }
+      if (await onJoin(extractInviteFromText(inviteCode), displayName.trim()) !== false) onClose();
+      else { setPreview(null); setHint("无法加入：邀请码可能已失效，或网络暂不可用。请重新验证。" ); }
+    } finally { setBusy(false); }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5 sm:p-6 w-full max-w-[400px] shadow-2xl">
-        <h2 className="text-lg font-semibold mb-1">输入邀请码加入</h2>
-        <p className="text-[12px] text-slate-500 mb-4 leading-relaxed">
-          粘贴管理端发来的整段内容。若含{" "}
-          <code className="text-sky-300">|wss://…</code>
-          ，会<strong className="text-slate-300">自动连公网</strong>（流量可用）。
-        </p>
+  const expiry = preview?.expiresAt
+    ? new Date(preview.expiresAt * 1000).toLocaleString("zh-CN", { hour12: false })
+    : "未设置到期时间";
 
-        <div className="flex items-center justify-between mb-1">
-          <label className="text-xs text-slate-400">邀请码</label>
-          <button
-            type="button"
-            className="text-[12px] text-indigo-400"
-            onClick={() => void pasteFromClipboard()}
-          >
-            粘贴
-          </button>
+  return <div className="fixed inset-0 z-50 flex flex-col bg-[#f3efe6] text-[#29362b]">
+    <header className="flex h-14 items-center border-b border-[#e6eadf] px-5">
+      <button type="button" onClick={onClose} className="text-2xl leading-none text-[#3d5945]" aria-label="返回">‹</button>
+      <h1 className="ml-3 text-base font-semibold">邀请验证</h1>
+    </header>
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-6 pt-10">
+      <div className="mx-auto grid h-20 w-20 place-items-center overflow-hidden rounded-3xl border border-[#d5dfcf] bg-[#eaf0e5] shadow-sm">
+        <span className="text-3xl text-[#49694e]">♧</span>
+      </div>
+      <h2 className="mt-6 text-center text-2xl font-semibold">加入群聊</h2>
+      <p className="mt-2 text-center text-sm text-[#71806f]">服务器验证邀请后，才会显示群聊信息。</p>
+      <div className="mt-7 overflow-hidden rounded-2xl border border-[#d8ddd2] bg-white shadow-sm">
+        <div className="flex items-center">
+          <input className="flex-1 px-4 py-4 text-sm outline-none placeholder:text-[#b0b5ad]" autoFocus placeholder="请输入邀请码" value={inviteCode} onChange={(event) => applyInviteText(event.target.value)} />
+          <button type="button" className="px-4 text-sm font-medium text-[#4d7452]" onClick={() => void paste()}>粘贴</button>
         </div>
-        <textarea
-          className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-3 mb-1 text-sm outline-none focus:border-indigo-500 font-mono min-h-[100px] resize-y"
-          placeholder={"SIC1.xxxx.yyyy\n或带服务器：SIC1.xxxx.yyyy|wss://域名"}
-          value={inviteCode}
-          onChange={(e) => applyInviteText(e.target.value)}
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          autoFocus
-        />
-        {hint && (
-          <p
-            className={`text-[11px] mb-3 ${
-              hint.includes("wss") || hint.includes("流量") ? "text-sky-400" : "text-emerald-400"
-            }`}
-          >
-            {hint}
-          </p>
-        )}
-        {!hint && <div className="mb-3" />}
-
-        <label className="text-xs text-slate-400 mb-1 block">你的昵称（群内唯一，不能重名）</label>
-        <input
-          className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2.5 mb-5 text-sm outline-none focus:border-indigo-500"
-          placeholder="与群内其他人不同的名字"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-        />
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="flex-1 py-3 text-sm rounded-xl text-slate-300 bg-[#21262d]"
-            onClick={onClose}
-            disabled={busy}
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            className="flex-[1.4] py-3 text-sm rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold disabled:opacity-40"
-            disabled={!inviteCode.trim() || !displayName.trim() || busy}
-            onClick={() => void submit()}
-          >
-            {busy ? "连接并加入…" : "加入该群"}
-          </button>
+        {preview && <div className="border-t border-[#edf0e9] bg-[#f7fbf6] px-4 py-3 text-sm"><p className="font-medium text-[#2f5c40]">{preview.name}</p><p className="mt-1 text-xs text-[#71806f]">有效期：{expiry}</p></div>}
+        <div className="border-t border-[#edf0e9] px-4 py-3">
+          <input className="w-full text-sm outline-none placeholder:text-[#b0b5ad]" placeholder="你的名字（群内显示）" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
         </div>
       </div>
-    </div>
-  );
+      <p role="status" className={`mt-2 min-h-5 text-xs ${hint.includes("无法") || hint.includes("不正确") ? "text-[#b55348]" : "text-[#71806f]"}`}>{hint}</p>
+      <p className="mt-6 text-xs leading-relaxed text-[#889487]">昵称只在此群内显示。确认加入时，服务器会再次检查邀请码是否有效。</p>
+      <button type="button" disabled={!inviteCode.trim() || busy || !!preview} onClick={() => void verify()} className="mt-auto w-full rounded-xl border border-[#3d6b4f] py-3.5 font-medium text-[#3d6b4f] disabled:opacity-40">{busy && !preview ? "正在验证…" : "验证邀请"}</button>
+      <button type="button" disabled={!preview || !displayName.trim() || busy} onClick={() => void submit()} className="mb-8 mt-3 w-full rounded-xl bg-[#3d6b4f] py-3.5 font-medium text-white disabled:opacity-40">{busy && preview ? "正在加入…" : "确认加入"}</button>
+    </main>
+  </div>;
 }

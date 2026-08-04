@@ -13,7 +13,14 @@ const DATA = "data";
 const STATE = "state";
 const EMPTY: PrivateData = { contacts: {}, conversationPrefs: {}, pendingInvites: [], settings: { notifications: true, safetyReminders: true } };
 
-const b64 = (value: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(value)));
+const b64 = (value: ArrayBuffer) => {
+  const bytes = new Uint8Array(value);
+  const parts: string[] = [];
+  for (let start = 0; start < bytes.length; start += 0x8000) {
+    parts.push(String.fromCharCode(...bytes.subarray(start, start + 0x8000)));
+  }
+  return btoa(parts.join(""));
+};
 const unb64 = (value: string) => Uint8Array.from(atob(value), c => c.charCodeAt(0));
 
 function openDb(): Promise<IDBDatabase> {

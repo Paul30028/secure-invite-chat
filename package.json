@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "vite --configLoader runner",
+    "build": "tsc && vite build --configLoader runner --emptyOutDir false",
     "test": "npm run test:client && npm run test:server",
-    "test:client": "vitest run",
+    "test:client": "vitest run --configLoader runner",
     "test:server": "node scripts/run-server-tests.mjs",
     "preview": "vite preview",
     "tauri": "tauri",

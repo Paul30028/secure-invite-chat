@@ -23,11 +23,9 @@ export function SplashScreen({
       role="button"
       tabIndex={0}
     >
-      <img
-        src="/icon-192.png"
-        alt={APP_NAME}
-        className="w-28 h-28 rounded-3xl shadow-md mb-6"
-      />
+      <div className="relative mb-6 h-32 w-32 overflow-hidden rounded-[28px] border border-[#dfe5d9] bg-[#f6f4ea] shadow-md">
+        <img src="/assets/wheat-fish.jpg" alt={APP_NAME} className="absolute max-w-none" style={{ width: 400, left: -56, top: -42 }} />
+      </div>
       <p className="text-[11px] tracking-[0.2em] text-[#8a9a82] font-medium">
         SECURE INVITE CHAT
       </p>

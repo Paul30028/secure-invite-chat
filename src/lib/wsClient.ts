@@ -4,7 +4,7 @@
  * 只传输密文；加解密在 crypto / envelope。
  */
 
-import { getFallbackWsUrl, getWsUrl } from "./settings";
+import { getWsUrl } from "./settings";
 import { withWireVersion } from "./protocol";
 import {
   buildAuthPayload,
@@ -21,6 +21,7 @@ export type IncomingMessage = {
   ciphertext: string;
   iv: string;
   key_version?: number;
+  client_message_id?: string;
   ts: number;
 };
 
@@ -59,6 +60,7 @@ export type CallSignal = {
 type ServerEventMap = {
   group_created: { group_id: string; name: string; invite_code: string; admin_token: string };
   joined: { group_id: string; name: string };
+  invite_preview: { invite_code: string; name: string; expires_at: number | null };
   resumed: { group_id: string };
   history: {
     group_id: string;
@@ -103,11 +105,10 @@ export class SicWsClient {
   private connectPromise: Promise<void> | null = null;
   private netHooksInstalled = false;
   private authChallenge: string | null = null;
-  private fallback = false;
 
   /** 每次连接读取最新 URL（设置面板可改） */
   private get url(): string {
-    return this.fallback ? getFallbackWsUrl() : getWsUrl();
+    return getWsUrl();
   }
 
   /**
@@ -191,7 +192,6 @@ export class SicWsClient {
           settled = true;
           resolve();
         }
-        if (!this.fallback && target === getWsUrl()) this.fallback = true;
         if (this.shouldReconnect) {
           setTimeout(() => this.connect(), this.reconnectDelay);
           this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, 15000);
@@ -266,13 +266,19 @@ export class SicWsClient {
     this.listeners[event]?.forEach((cb) => cb(payload));
   }
 
-  private send(payload: Record<string, unknown>) {
+  private send(payload: Record<string, unknown>): boolean {
     if (this.ws?.readyState !== WebSocket.OPEN) {
       console.warn("[SicWsClient] 连接未就绪", payload.type);
-      return;
+      return false;
     }
     // 带上 wire 版本，便于未来中继/多版本协商；旧服务端忽略未知字段
-    this.ws.send(JSON.stringify(withWireVersion(payload)));
+    try {
+      this.ws.send(JSON.stringify(withWireVersion(payload)));
+      return true;
+    } catch (error) {
+      console.warn("[SicWsClient] send failed", payload.type, error);
+      return false;
+    }
   }
 
   async createGroup(name: string, deviceId: string, displayName: string) {
@@ -297,6 +303,10 @@ export class SicWsClient {
       identity_pub: identity.publicKeySpkiB64,
       ecdh_pub: identity.ecdhPublicKeySpkiB64,
     });
+  }
+
+  previewInvite(inviteCode: string): boolean {
+    return this.send({ type: "preview_invite", invite_code: inviteCode });
   }
 
   async resumeGroup(groupId: string, deviceId: string) {
@@ -348,8 +358,9 @@ export class SicWsClient {
     iv: string;
     keyVersion: number;
     senderName: string;
-  }) {
-    this.send({
+    clientMessageId?: string;
+  }): boolean {
+    return this.send({
       type: "send_message",
       group_id: params.groupId,
       device_id: params.deviceId,
@@ -358,6 +369,7 @@ export class SicWsClient {
       iv: params.iv,
       key_version: params.keyVersion,
       sender_name: params.senderName,
+      ...(params.clientMessageId ? { client_message_id: params.clientMessageId } : {}),
     });
   }
 

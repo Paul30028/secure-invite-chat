@@ -18,6 +18,9 @@ import {
   removeLocalGroup,
   getCachedMessages,
   saveCachedMessages,
+  getPendingOutboundMessages,
+  savePendingOutboundMessage,
+  removePendingOutboundMessage,
 } from "../lib/storage";
 import { buildShareInvite, generateGroupSecret, parseInviteInput } from "../lib/invite";
 import {
@@ -63,6 +66,8 @@ export type FileSendProgress = {
   stage: "read" | "encode" | "encrypt" | "send" | "done";
   label: string;
 };
+
+export type InvitePreview = { name: string; expiresAt: number | null };
 
 function trustToBadge(
   trust: { status: string },
@@ -360,7 +365,34 @@ export function useChatEngine() {
       setActiveGroupId(payload.group_id);
     });
 
-    const offResumed = wsClient.on("resumed", () => {});
+    const flushPendingOutbound = (groupId: string) => {
+      const pending = getPendingOutboundMessages()
+        .filter((item) => item.groupId === groupId && item.deviceId === deviceId)
+        .sort((a, b) => a.createdAt - b.createdAt);
+      for (const item of pending) {
+        const accepted = wsClient.sendMessage({
+          groupId: item.groupId,
+          deviceId: item.deviceId,
+          msgType: item.msgType,
+          ciphertext: item.ciphertext,
+          iv: item.iv,
+          keyVersion: item.keyVersion,
+          senderName: item.senderName,
+          clientMessageId: item.clientMessageId,
+        });
+        if (!accepted) break;
+        setMessages((prev) => ({
+          ...prev,
+          [item.groupId]: (prev[item.groupId] || []).map((message) =>
+            message.id === item.localMessageId ? { ...message, delivery: "sending" } : message
+          ),
+        }));
+      }
+    };
+
+    const offResumed = wsClient.on("resumed", (payload) => {
+      flushPendingOutbound(payload.group_id);
+    });
 
     const offHistory = wsClient.on("history", async (payload) => {
       const group = getLocalGroups().find((g) => g.groupId === payload.group_id);
@@ -397,11 +429,15 @@ export function useChatEngine() {
       const group = getLocalGroups().find((g) => g.groupId === m.group_id);
       if (!group) return;
       const decrypted = await decryptIncoming(group, m);
+      if (decrypted.isMine) decrypted.delivery = "sent";
+      if (m.client_message_id) removePendingOutboundMessage(m.client_message_id);
       setMessages((prev) => {
         const list = prev[m.group_id] || [];
-        // 去掉乐观发送的临时消息（同内容、自己发的）
+        // Prefer the opaque client id.  Older servers/messages do not carry it,
+        // so retain the legacy content comparison only as a compatibility path.
         const withoutTmp = list.filter((x) => {
           if (!x.id.startsWith("tmp_") || !x.isMine) return true;
+          if (m.client_message_id && x.id === `tmp_${m.client_message_id}`) return false;
           if (decrypted.isMine && decrypted.msgType === x.msgType) {
             if (x.msgType === "text" && x.text === decrypted.text) return false;
             if (x.msgType === "file" && x.file?.name === decrypted.file?.name) return false;
@@ -815,16 +851,16 @@ export function useChatEngine() {
       }
 
       // 邀请内嵌服务器 → 自动切换（手机开流量跨网时）
-      if (parsed.relayUrl) {
+      // An invitation may describe its origin, but it may not change this
+      // device's configured relay.  Only an identical endpoint is accepted.
+      if (parsed.relayUrl && parsed.relayUrl === getWsUrl()) {
         const cur = getWsUrl();
         if (cur !== parsed.relayUrl) {
           setWsUrl(parsed.relayUrl);
           setStatus("connecting");
           const ok = await wsClient.waitUntilConnected(15000);
           if (!ok) {
-            setErrorMsg(
-              `无法连接 ${parsed.relayUrl}。手机流量需服务器公网可达（IP:8765 或 wss）。`
-            );
+            setErrorMsg("安全连接未恢复，请检查网络后重试。");
             setTimeout(() => setErrorMsg(null), 6000);
             return false;
           }
@@ -835,7 +871,7 @@ export function useChatEngine() {
         const ok = await wsClient.waitUntilConnected(12000);
         if (!ok) {
           setErrorMsg(
-            "未连接服务器。请设置中填写电脑公网/局域网 IP；或使用带 |ws://… 的邀请码。"
+            "安全连接未恢复，请检查网络后重试。"
           );
           setTimeout(() => setErrorMsg(null), 5500);
           return false;
@@ -861,8 +897,10 @@ export function useChatEngine() {
           resolve(ok);
         };
         const timer = setTimeout(() => {
-          // 超时仍可能已成功，交给后续事件；不误关时可再试
-          done(true);
+          pendingJoin.current = null;
+          setErrorMsg("加入请求超时，请检查网络后重试");
+          setTimeout(() => setErrorMsg(null), 5000);
+          done(false);
         }, 10000);
         const offJoined = wsClient.on("joined", () => done(true));
         const offErr = wsClient.on("error", (payload) => {
@@ -885,6 +923,31 @@ export function useChatEngine() {
     },
     [deviceId]
   );
+
+  const previewInvite = useCallback(async (inviteRaw: string): Promise<InvitePreview | null> => {
+    const parsed = parseInviteInput(inviteRaw);
+    if (!parsed || localModeRef.current) return null;
+    if (!wsClient.isOpen() && !(await wsClient.waitUntilConnected(12000))) return null;
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (value: InvitePreview | null) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        offPreview();
+        offError();
+        resolve(value);
+      };
+      const offPreview = wsClient.on("invite_preview", (payload) => {
+        if (payload.invite_code === parsed.serverInviteCode) {
+          finish({ name: payload.name, expiresAt: payload.expires_at ?? null });
+        }
+      });
+      const offError = wsClient.on("error", () => finish(null));
+      const timer = setTimeout(() => finish(null), 8000);
+      if (!wsClient.previewInvite(parsed.serverInviteCode)) finish(null);
+    });
+  }, []);
 
   const loadOlderMessages = useCallback(
     (groupId: string) => {
@@ -917,6 +980,7 @@ export function useChatEngine() {
 
       // 乐观显示（本地调试与中继均立即可见）
       const tmpId = `tmp_${randomUUID()}`;
+      const clientMessageId = tmpId.slice(4);
       const localMsg: ChatMessage = {
         id: tmpId,
         groupId,
@@ -927,6 +991,7 @@ export function useChatEngine() {
         ts: Date.now(),
         isMine: true,
         trust: "verified",
+        delivery: "sending",
       };
       appendMessage(groupId, localMsg);
 
@@ -942,7 +1007,7 @@ export function useChatEngine() {
         return;
       }
 
-      wsClient.sendMessage({
+      const accepted = wsClient.sendMessage({
         groupId,
         deviceId,
         msgType: "text",
@@ -950,7 +1015,23 @@ export function useChatEngine() {
         iv,
         senderName: "e2ee",
         keyVersion,
+        clientMessageId,
       });
+      if (!accepted) {
+        savePendingOutboundMessage({
+          clientMessageId,
+          localMessageId: tmpId,
+          groupId,
+          deviceId,
+          msgType: "text",
+          ciphertext,
+          iv,
+          keyVersion,
+          senderName: "e2ee",
+          createdAt: Date.now(),
+        });
+        setMessages((prev) => ({ ...prev, [groupId]: (prev[groupId] || []).map((message) => message.id === tmpId ? { ...message, delivery: "queued" } : message) }));
+      }
     },
     [deviceId, getKey, appendMessage]
   );
@@ -1301,6 +1382,7 @@ export function useChatEngine() {
     createGroup,
     openDemoChat,
     joinGroup,
+    previewInvite,
     loadOlderMessages,
     sendMessage,
     sendFile,
